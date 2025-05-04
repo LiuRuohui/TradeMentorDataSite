@@ -1,0 +1,4 @@
+[llm]
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"  # API服务接口， 比如： "https://api-inference.modelscope.cn/v1/"
+model = "qwen-omni-turbo"    # 能识别图片的多模态模型，比如： Qwen-VL 系列
+api_key = "sk-9a3591ef277142adb5f0c813fdfb5c97"   # 你的API key
