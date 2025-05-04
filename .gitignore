@@ -37,7 +37,6 @@ env/
 # Project specific
 build.bat
 runtime_hook.py
-data_archive/
 
 # Logs
 *.log

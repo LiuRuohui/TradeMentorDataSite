@@ -38,11 +38,6 @@ pio.templates.default = "simple_white"
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=pd.errors.SettingWithCopyWarning)
 
-# 版本信息
-__version__ = '1.3.0'
-__author__ = 'samwan'
-__release_date__ = '2024-03-23'
-
 # 设置中文编码环境
 try:
     import locale
