@@ -802,6 +802,25 @@ def generate_stock_charts(stocks: pd.DataFrame,
                 name='波动率'
             ), row=4, col=2)
 
+            # 显示所有行的x轴（关键修改）
+            for row in [2,3,4]:
+                fig.update_xaxes(
+                    showticklabels=True,  # 显示刻度标签
+                    showgrid=True,        # 显示网格线
+                    showline=True,        # 显示轴线
+                    linecolor='rgba(200,200,200,0.5)',  # 轴线颜色
+                    row=row,
+                    col=1
+                )
+                fig.update_xaxes(
+                    showticklabels=True,
+                    showgrid=True,
+                    showline=True,
+                    linecolor='rgba(200,200,200,0.5)',
+                    row=row,
+                    col=2
+                )
+
             # ======================
             # 专业样式配置
             # ======================
@@ -827,6 +846,9 @@ def generate_stock_charts(stocks: pd.DataFrame,
                     xanchor="right",
                     x=1
                 ),
+                xaxis=dict(
+                    rangeslider=dict(visible=False)  # 确保禁用范围选择器
+                )
             )
 
             # 增强网格线

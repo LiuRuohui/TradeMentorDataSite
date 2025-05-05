@@ -38,6 +38,7 @@ env/
 build.bat
 runtime_hook.py
 data_archive/
+data_cache/
 
 # Logs
 *.log
