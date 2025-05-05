@@ -114,9 +114,12 @@ def get_historical_data(stock_code: str, start_date: str,
             logger.debug(f'缓存命中：{stock_code}')
             return pd.read_parquet(cache_file)
 
+        # -------- ① 先试 A 股接口 ----------
         hist = ak.stock_zh_a_hist(symbol=stock_code,
                                   start_date=start_date,
                                   end_date=end_date)
+
+        # -------- ② 如果代码是纯字母，优先认定为美股 ----------
         if (hist is None or hist.empty) and stock_code.isalpha():
             hist = ak.stock_us_hist(symbol=stock_code,
                                     start_date=start_date,
@@ -125,11 +128,30 @@ def get_historical_data(stock_code: str, start_date: str,
         if hist is None or hist.empty:
             return pd.DataFrame()
 
-        hist['日期'] = pd.to_datetime(hist['日期'])
-        hist.set_index('日期', inplace=True)
-        result = hist[['开盘', '收盘', '最高', '最低', '成交量']].rename(
-            columns={'开盘': 'open', '收盘': 'close', '最高': 'high',
-                     '最低': 'low', '成交量': 'volume'})
+        # -------- ③ 统一列名 ----------
+        # A‑股列名: 开盘 收盘 最高 最低 成交量
+        # 美股列名: open  close  high  low  volume
+        col_map = {
+            '开盘': 'open', '收盘': 'close', '最高': 'high',
+            '最低': 'low',  '成交量': 'volume',
+            'open': 'open', 'close': 'close', 'high': 'high',
+            'low': 'low',   'volume': 'volume'
+        }
+        hist.rename(columns=col_map, inplace=True)
+
+        # 只保留核心五列，若缺列直接丢弃
+        needed = ['open', 'close', 'high', 'low', 'volume']
+        if not set(needed).issubset(hist.columns):
+            logger.warning(f'{stock_code} 缺少必要列，实际列: {hist.columns.tolist()}')
+            return pd.DataFrame()
+
+        # 把日期列设为索引（两种接口列名不同，统一处理）
+        date_col = '日期' if '日期' in hist.columns else 'date'
+        hist[date_col] = pd.to_datetime(hist[date_col])
+        hist.set_index(date_col, inplace=True)
+        hist.sort_index(inplace=True)
+
+        result = hist[needed]
 
         if use_cache:
             os.makedirs(cache_dir, exist_ok=True)
