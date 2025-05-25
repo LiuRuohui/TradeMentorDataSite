@@ -118,9 +118,7 @@ def func():
     end_date = datetime.now().strftime('%Y%m%d')
     start_date = (datetime.strptime(end_date, '%Y%m%d') -
                   timedelta(30)).strftime('%Y%m%d')
-    hist_data = ak.stock_zh_a_hist(symbol="600340",
-                                   start_date=start_date,
-                                   end_date=end_date)
+    hist_data = ak.stock_us_hist()
     print(hist_data)
 
 

@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib as mpl
 import warnings
+import akshare.utils.func
 
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Union
@@ -100,127 +101,64 @@ def set_plot_style() -> None:
     plt.rcParams['axes.labelsize'] = 16
     plt.rcParams['axes.labelweight'] = 'bold'
 
-def get_historical_data(stock_code: str, start_date: str,
-                        end_date: str) -> pd.DataFrame:
+def get_historical_data(stock_code: str, start_date: str, end_date: str, debug: bool = False) -> pd.DataFrame:
     """
-    获取单只股票历史行情；先查缓存，再调 akshare
+    获取指定股票的历史数据
+    
+    Args:
+        stock_code: 股票代码
+        start_date: 开始日期，格式为'YYYY-MM-DD'
+        end_date: 结束日期，格式为'YYYY-MM-DD'
+        debug: 是否启用调试模式
+    
+    Returns:
+        pd.DataFrame: 包含开盘价、收盘价、最高价、最低价和成交量的历史数据
     """
     try:
-        use_cache = args.debug
-        cache_dir = os.path.join('data_cache', f'{start_date}_{end_date}')
-        cache_file = os.path.join(cache_dir, f'{stock_code}_hist.parquet')
-
-        if use_cache and os.path.exists(cache_file):
-            logger.debug(f'缓存命中：{stock_code}')
-            return pd.read_parquet(cache_file)
-
-        # -------- ① 先试 A 股接口 ----------
-        hist = ak.stock_zh_a_hist(symbol=stock_code,
-                                  start_date=start_date,
-                                  end_date=end_date)
-
-        # -------- ② 如果代码是纯字母，优先认定为美股 ----------
-        if (hist is None or hist.empty) and stock_code.isalpha():
-            hist = ak.stock_us_hist(symbol=stock_code,
-                                    start_date=start_date,
-                                    end_date=end_date)
-
-        if hist is None or hist.empty:
-            return pd.DataFrame()
-
-        # -------- ③ 统一列名 ----------
-        # A‑股列名: 开盘 收盘 最高 最低 成交量
-        # 美股列名: open  close  high  low  volume
-        col_map = {
-            '开盘': 'open', '收盘': 'close', '最高': 'high',
-            '最低': 'low',  '成交量': 'volume',
-            'open': 'open', 'close': 'close', 'high': 'high',
-            'low': 'low',   'volume': 'volume'
-        }
-        hist.rename(columns=col_map, inplace=True)
-
-        # 只保留核心五列，若缺列直接丢弃
-        needed = ['open', 'close', 'high', 'low', 'volume']
-        if not set(needed).issubset(hist.columns):
-            logger.warning(f'{stock_code} 缺少必要列，实际列: {hist.columns.tolist()}')
-            return pd.DataFrame()
-
-        # 把日期列设为索引（两种接口列名不同，统一处理）
-        date_col = '日期' if '日期' in hist.columns else 'date'
-        hist[date_col] = pd.to_datetime(hist[date_col])
-        hist.set_index(date_col, inplace=True)
-        hist.sort_index(inplace=True)
-
-        result = hist[needed]
-
+        # 从参数获取调试模式状态
+        use_cache = debug
+        
         if use_cache:
+            # 检查缓存目录
+            cache_dir = os.path.join('data_cache', start_date + '_' + end_date)
             os.makedirs(cache_dir, exist_ok=True)
+            cache_file = os.path.join(cache_dir, f'{stock_code}_hist.parquet')
+            
+            if os.path.exists(cache_file):
+                logger.debug(f"从缓存读取股票 {stock_code} 的历史数据")
+                return pd.read_parquet(cache_file)
+        
+        # 获取新数据
+        hist_data = ak.stock_zh_a_hist(symbol=stock_code, 
+                                     start_date=start_date, 
+                                     end_date=end_date)
+        if hist_data is None or hist_data.empty:
+            hist_data = ak.stock_us_hist(symbol=stock_code,
+                                     start_date=start_date,
+                                     end_date=end_date)
+        if hist_data is None or hist_data.empty:
+            return pd.DataFrame()
+
+        logger.debug("结束获取数据")
+        # 确保日期列是datetime类型
+        hist_data['日期'] = pd.to_datetime(hist_data['日期'])
+        hist_data.set_index('日期', inplace=True)
+        
+        # 转换列名
+        result = hist_data[['开盘', '收盘', '最高', '最低', '成交量']].rename(
+            columns={'开盘': 'open', '收盘': 'close', '最高': 'high', 
+                    '最低': 'low', '成交量': 'volume'})
+            
+        # 如果启用了缓存，保存数据
+        if use_cache:
+            logger.debug(f"缓存股票 {stock_code} 的历史数据")
             result.to_parquet(cache_file)
-
+            
         return result
-
+        
     except Exception as e:
-        logger.error(f'获取 {stock_code} 行情失败：{e}')
+        logger.error(f"获取股票 {stock_code} 历史数据时出错: {str(e)}")
         return pd.DataFrame()
-
-# def get_historical_data(stock_code: str, start_date: str, end_date: str) -> pd.DataFrame:
-#     """
-#     获取指定股票的历史数据
-    
-#     Args:
-#         stock_code: 股票代码
-#         start_date: 开始日期，格式为'YYYY-MM-DD'
-#         end_date: 结束日期，格式为'YYYY-MM-DD'
-    
-#     Returns:
-#         pd.DataFrame: 包含开盘价、收盘价、最高价、最低价和成交量的历史数据
-#     """
-#     try:
-#         # 从全局变量获取调试模式状态
-#         use_cache = args.debug
-        
-#         if use_cache:
-#             # 检查缓存目录
-#             cache_dir = os.path.join('data_cache', start_date + '_' + end_date)
-#             os.makedirs(cache_dir, exist_ok=True)
-#             cache_file = os.path.join(cache_dir, f'{stock_code}_hist.parquet')
-            
-#             if os.path.exists(cache_file):
-#                 logger.debug(f"从缓存读取股票 {stock_code} 的历史数据")
-#                 return pd.read_parquet(cache_file)
-#         # logger.debug(f"[debug]{stock_code}缓存中不存在，直接返回")
-#         # return pd.DataFrame()
-#         # 获取新数据
-#         hist_data = ak.stock_zh_a_hist(symbol=stock_code, 
-#                                      start_date=start_date, 
-#                                      end_date=end_date)
-#         if hist_data is None or hist_data.empty:
-#             hist_data = ak.stock_us_hist(symbol=stock_code,
-#                                      start_date=start_date,
-#                                      end_date=end_date)
-#         if hist_data is None or hist_data.empty:
-#             return pd.DataFrame()
-
-#         logger.debug("结束获取数据666")
-#         # 确保日期列是datetime类型
-#         hist_data['日期'] = pd.to_datetime(hist_data['日期'])
-#         hist_data.set_index('日期', inplace=True)
-        
-#         # 转换列名
-#         result = hist_data[['开盘', '收盘', '最高', '最低', '成交量']].rename(
-#             columns={'开盘': 'open', '收盘': 'close', '最高': 'high', 
-#                     '最低': 'low', '成交量': 'volume'})
-            
-#         # 如果启用了缓存，保存数据
-#         if use_cache:
-#             logger.debug(f"缓存股票 {stock_code} 的历史数据")
-#             result.to_parquet(cache_file)
-            
-#         return result
-        
-#     except Exception as e:
-#         logger.error(f"获取股票 {stock_code} 历史数据时出错: {str(e)}")
-#         return pd.DataFrame()
 
 def calculate_technical_indicators(data: pd.DataFrame) -> Dict[str, pd.Series]:
     if data.empty:
@@ -259,67 +197,6 @@ def calculate_technical_indicators(data: pd.DataFrame) -> Dict[str, pd.Series]:
     return {col: data[col] for col in
             ['ma5', 'ma10', 'ma20', 'dif', 'dea', 'macd',
              'k', 'd', 'j', 'rsi', 'volume_ma5']}
-# def calculate_technical_indicators(data: pd.DataFrame) -> Dict[str, pd.Series]:
-#     """
-#     计算技术指标，包括MA、MACD、KDJ、RSI等
-    
-#     Args:
-#         data: 包含历史数据的DataFrame
-    
-#     Returns:
-#         Dict[str, pd.Series]: 包含各种技术指标的字典
-#     """
-#     try:
-#         if data.empty:
-#             return {}
-            
-#         # 计算移动平均线
-#         data['ma5'] = data['close'].rolling(window=5).mean()
-#         data['ma10'] = data['close'].rolling(window=10).mean()
-#         data['ma20'] = data['close'].rolling(window=20).mean()
-        
-#         # 计算MACD
-#         exp12 = data['close'].ewm(span=12, adjust=False).mean()
-#         exp26 = data['close'].ewm(span=26, adjust=False).mean()
-#         data['dif'] = exp12 - exp26
-#         data['dea'] = data['dif'].ewm(span=9, adjust=False).mean()
-#         data['macd'] = 2 * (data['dif'] - data['dea'])
-        
-#         # 计算KDJ
-#         low_9 = data['low'].rolling(window=9).min()
-#         high_9 = data['high'].rolling(window=9).max()
-#         rsv = (data['close'] - low_9) / (high_9 - low_9) * 100
-#         data['k'] = rsv.ewm(span=3, adjust=False).mean()
-#         data['d'] = data['k'].ewm(span=3, adjust=False).mean()
-#         data['j'] = 3 * data['k'] - 2 * data['d']
-        
-#         # 计算RSI
-#         diff = data['close'].diff()
-#         gain = (diff.where(diff > 0, 0)).rolling(window=14).mean()
-#         loss = (-diff.where(diff < 0, 0)).rolling(window=14).mean()
-#         rs = gain / loss
-#         data['rsi'] = 100 - (100 / (1 + rs))
-        
-#         # 计算成交量均线
-#         data['volume_ma5'] = data['volume'].rolling(window=5).mean()
-        
-#         return {
-#             'ma5': data['ma5'],
-#             'ma10': data['ma10'],
-#             'ma20': data['ma20'],
-#             'dif': data['dif'],
-#             'dea': data['dea'],
-#             'macd': data['macd'],
-#             'k': data['k'],
-#             'd': data['d'],
-#             'j': data['j'],
-#             'rsi': data['rsi'],
-#             'volume_ma5': data['volume_ma5']
-#         }
-        
-#     except Exception as e:
-#         logger.error(f"计算技术指标时出错: {str(e)}")
-#         return {}
 
 def calculate_stock_score(hist: pd.DataFrame,
                           ind: Dict[str, pd.Series]) -> float:
@@ -423,126 +300,6 @@ def calculate_stock_score(hist: pd.DataFrame,
     except Exception as e:
         logger.error(f'计算评分失败: {e}')
         return 0.0
-# def calculate_stock_score(hist_data: pd.DataFrame, indicators: Dict) -> float:
-    # """
-    # 根据历史数据和技术指标计算股票评分
-    
-    # Args:
-    #     hist_data: 历史数据
-    #     indicators: 技术指标
-    
-    # Returns:
-    #     float: 股票评分，范围0-100
-    # """
-    # try:
-    #     # 增加数据长度检查
-    #     min_data_length = 15  # 至少需要20个交易日的数据
-    #     if hist_data.empty or len(hist_data) < min_data_length:
-    #         return 0.0
-            
-    #     # 动态权重计算
-    #     volatility = hist_data['close'].pct_change().std()  # 波动率
-    #     if volatility > 0.05:  # 高波动率时增加技术指标权重
-    #         weights = {'macd': 0.25, 'kdj': 0.25, 'rsi': 0.2, 'ma': 0.2, 'volume': 0.1}
-    #     else:  # 低波动率时增加趋势指标权重
-    #         weights = {'macd': 0.2, 'kdj': 0.2, 'rsi': 0.15, 'ma': 0.3, 'volume': 0.15}
-        
-    #     # 1. MACD指标
-    #     macd_score = 0
-    #     if indicators['macd'][-1] > 0:
-    #         macd_score += 10
-    #     if len(hist_data) > 1 and (indicators['dif'][-1] > indicators['dea'][-1] and 
-    #         indicators['dif'][-2] <= indicators['dea'][-2]):
-    #         macd_score += 10
-    #     macd_score *= weights['macd']
-        
-    #     # 2. KDJ指标
-    #     kdj_score = 0
-    #     if indicators['k'][-1] < 30 and indicators['d'][-1] < 30:
-    #         kdj_score += 10
-    #     if indicators['j'][-1] < 20:
-    #         kdj_score += 5
-    #     if len(hist_data) > 1 and (indicators['k'][-1] > indicators['d'][-1] and 
-    #         indicators['k'][-2] <= indicators['d'][-2]):
-    #         kdj_score += 5
-    #     kdj_score *= weights['kdj']
-        
-    #     # 3. RSI指标
-    #     rsi = indicators['rsi'][-1]
-    #     rsi_score = 0
-    #     if rsi < 30:
-    #         rsi_score = 20
-    #     elif rsi < 40:
-    #         rsi_score = 15
-    #     elif rsi < 50:
-    #         rsi_score = 10
-    #     rsi_score *= weights['rsi']
-        
-    #     # 4. 均线系统
-    #     ma_score = 0
-    #     if (indicators['ma5'][-1] > indicators['ma10'][-1] > 
-    #         indicators['ma20'][-1]):
-    #         ma_score += 10
-    #     latest_price = hist_data['close'][-1]
-    #     if latest_price > indicators['ma5'][-1]:
-    #         ma_score += 4
-    #     if latest_price > indicators['ma10'][-1]:
-    #         ma_score += 3
-    #     if latest_price > indicators['ma20'][-1]:
-    #         ma_score += 3
-    #     ma_score *= weights['ma']
-        
-    #     # 5. 成交量分析
-    #     vol_score = 0
-    #     if hist_data['volume'][-1] > indicators['volume_ma5'][-1]:
-    #         vol_score += 10
-    #     if len(hist_data) >= 3 and (hist_data['volume'][-1] > hist_data['volume'][-2] > 
-    #         hist_data['volume'][-3]):
-    #         vol_score += 10
-    #     vol_score *= weights['volume']
-        
-    #     # 6. 趋势强度指标（新增）
-    #     trend_score = 0
-    #     if len(hist_data) >= 5:
-    #         # 计算短期（5日）和长期（20日）趋势
-    #         short_term = hist_data['close'][-5:].pct_change().mean()
-    #         long_term = hist_data['close'][-20:].pct_change().mean()
-            
-    #         # 趋势强度评分
-    #         if short_term > long_term:  # 短期趋势强于长期趋势
-    #             trend_score += 10
-    #         if hist_data['close'][-1] > hist_data['close'][-5]:  # 近期上涨
-    #             trend_score += 5
-    #         if hist_data['close'][-1] > hist_data['close'][-20]:  # 长期上涨
-    #             trend_score += 5
-                
-    #     # 7. 风险调整（新增）
-    #     risk_adjustment = 1.0
-    #     # 基于波动率调整
-    #     if volatility > 0.1:  # 高波动率
-    #         risk_adjustment *= 0.9
-    #     elif volatility < 0.05:  # 低波动率
-    #         risk_adjustment *= 1.1
-    #     # 基于最大回撤调整
-    #     max_drawdown = (hist_data['close'].cummax() - hist_data['close']).max() / hist_data['close'].cummax().max()
-    #     if max_drawdown > 0.2:  # 最大回撤超过20%
-    #         risk_adjustment *= 0.9
-            
-    #     # 综合评分
-    #     total_score = (macd_score + kdj_score + rsi_score + ma_score + vol_score + trend_score) * risk_adjustment
-        
-    #     # 根据历史表现调整评分
-    #     recent_performance = hist_data['close'][-1] / hist_data['close'][0] - 1
-    #     if recent_performance > 0.1:  # 近期表现良好
-    #         total_score *= 1.1
-    #     elif recent_performance < -0.1:  # 近期表现不佳
-    #         total_score *= 0.9
-            
-    #     return round(min(total_score, 100), 2)  # 确保评分不超过100，并保留2位小数
-        
-    # except Exception as e:
-    #     logger.error(f"计算股票评分时出错: {str(e)}")
-    #     return 0.0
 
 def analyze_stocks(stock_list: pd.DataFrame, start_date: str, end_date: str, pool_size: int = 8) -> List[Dict]:
     """
@@ -557,6 +314,7 @@ def analyze_stocks(stock_list: pd.DataFrame, start_date: str, end_date: str, poo
     Returns:
         List[Dict]: 包含每只股票分析结果的列表
     """
+    
     # 确保stock_list是DataFrame且包含'代码'和'名称'列
     if not isinstance(stock_list, pd.DataFrame) or not {'代码', '名称'}.issubset(stock_list.columns):
         logger.error("股票列表格式不正确")
@@ -693,7 +451,7 @@ def process_results(results: List[Dict]) -> pd.DataFrame:
         try:
             df['总市值（亿元）'] = df['总市值（亿元）'].round(2)
         except:
-            # 历史数据没有’总市值（亿元）’列，其值是'N/A'，这里不做处理
+            # 历史数据没有'总市值（亿元）'列，其值是'N/A'，这里不做处理
             pass
         df['起始日价（元）'] = df['起始日价（元）'].round(2)
         df['截止日价（元）'] = df['截止日价（元）'].round(2)
@@ -722,7 +480,7 @@ def analyze_stock_wrapper(args: Tuple[str, str, str, str, Optional[pd.DataFrame]
         stock_code, stock_name, start_date, end_date, current_info, is_historical = args
         
         # 获取历史数据
-        hist_data = get_historical_data(stock_code, start_date, end_date)
+        hist_data = get_historical_data(stock_code, start_date, end_date, debug=args.debug)
         if hist_data.empty or len(hist_data) < 15:  # 新增数据长度检查
             logger.warning(f"股票 {stock_code} 历史数据不足，跳过分析")
             return None
@@ -842,12 +600,15 @@ def analyze_stock_wrapper(args: Tuple[str, str, str, str, Optional[pd.DataFrame]
         logger.error(f"分析股票 {stock_code} 时出错: {str(e)}")
         return None
 
-def generate_stock_charts(stocks: pd.DataFrame,
-                         start_date: str,
-                         end_date: str,
-                         output_dir: str) -> None:
+def generate_stock_charts(
+    stocks: pd.DataFrame,
+    start_date: str,
+    end_date: str,
+    output_dir: str,
+    k: int = 10
+) -> None:
     try:
-        stocks = stocks.head(args.k)
+        stocks = stocks.head(k)
 
         for _, stock in stocks.iterrows():
             code, name = stock['代码'], stock['名称']
@@ -1098,7 +859,7 @@ def main():
     parser = argparse.ArgumentParser(
         description=PROGRAM_DESC,
         formatter_class=argparse.RawTextHelpFormatter)
-    
+
     parser.add_argument('-k', type=int, default=10, help='显示前K只股票')
     parser.add_argument('-d','--days', type=int, help='从当前时间往回倒退d天开始分析（不能少于30天，默认30天）')
     parser.add_argument('-p', '--parallel', type=int, default=8, help='并行处理的进程数')
@@ -1109,10 +870,10 @@ def main():
     parser.add_argument('-c', '--codes', type=str, help='指定股票代码（用逗号分隔多个代码）')
     parser.add_argument('--ai', action='store_true', help='启用AI分析功能, 需要自己配置config.toml, 请参考:config.example.toml')
     parser.add_argument('--all', action='store_true', help='分析所有股票（默认只分析上证和深证股票）')
-    
+
     # 解析命令行参数后，设置全局变量
     args = parser.parse_args()
-    
+
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
     
@@ -1127,14 +888,6 @@ def main():
     console_handler.setFormatter(console_formatter)
     # 添加处理器
     logger.addHandler(console_handler)
-    
-    # 创建文件处理器
-    #file_handler = logging.FileHandler('stock_analysis.log', encoding='utf-8')
-    #file_handler.setLevel(logging.DEBUG)
-    #file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    #file_handler.setFormatter(file_formatter)
-    # 添加处理器
-    #logger.addHandler(file_handler)
     
     # 显示免责声明
     logger.info(DISCLAIMER)
@@ -1263,7 +1016,7 @@ def main():
         logger.info(f"分析结果已保存至: {output_file}")
         
         # 生成图表
-        generate_stock_charts(df, start_date, end_date, output_dir)
+        generate_stock_charts(df, start_date, end_date, output_dir, args.k)
         
         # 如果启用了AI分析
         if args.ai:
