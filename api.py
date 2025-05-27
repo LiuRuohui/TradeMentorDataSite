@@ -261,7 +261,7 @@ async def analyze_batch_stocks(
 @app.post("/stocks/list", summary="POST 获取股票列表（可选交易所）")
 async def get_stock_list(req: StockListRequest):
     """
-    **exchange** 留空 = 全部；可选 SH / SZ / US / HK  
+    **exchange** 留空 = 全部；可选 SH / SZ / US / HK
     **refresh** 设 True 会忽略本地缓存，重新调用 AkShare。
     """
     df = _load_stocks(req.refresh)
@@ -274,9 +274,10 @@ async def get_stock_list(req: StockListRequest):
         elif ex == "SZ":
             df = df[df["code"].str.startswith(("0", "3"))]
         elif ex == "US":
-            df = df[df["code"].str.isalpha()]
+            # 美股代码示例: 105.GOOG / 106.BABA / 105.AMZN
+            df = df[df["code"].str.match(r"^\d{3}\.[A-Za-z]{3,5}$", na=False)]
         elif ex == "HK":
-            df = df[df["code"].str.match(r"^\d{5}$")]
+            df = df[df["code"].str.match(r"^\d{5}$", na=False)]
         else:
             raise HTTPException(400, "exchange 仅支持 SH/SZ/US/HK")
 
