@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>股票分析系统 Demo</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        margin: 0;
+        padding: 0 1rem 3rem;
+        background: #f5f6fa;
+      }
+      h1 {
+        text-align: center;
+        margin: 1.2rem 0 2rem;
+      }
+      .card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 600;
+      }
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        box-sizing: border-box;
+      }
+      button {
+        background: #409eff;
+        color: #fff;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .result pre {
+        background: #f1f3f5;
+        padding: 0.8rem 1rem;
+        border-radius: 4px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      iframe {
+        border: none;
+        width: 100%;
+        height: 650px;
+        margin-top: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      }
+      .spinner {
+        display: inline-block;
+        width: 22px;
+        height: 22px;
+        border: 3px solid #cfd0d1;
+        border-top-color: #409eff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>股票分析系统 Demo</h1>
+
+    <!-- 输入表单 -->
+    <div class="card">
+      <form id="analyzeForm">
+        <label for="stock_code">股票代码 *</label>
+        <input
+          type="text"
+          id="stock_code"
+          name="stock_code"
+          required
+          placeholder="如 600519 或 107.IWF"
+        />
+
+        <label for="days">向前天数 (默认 60)</label>
+        <input type="number" id="days" name="days" value="60" min="15" />
+
+        <button type="submit" id="submitBtn">开始分析</button>
+      </form>
+    </div>
+
+    <!-- 结果区 -->
+    <div id="resultCard" class="card" style="display: none">
+      <h2>分析结果 <span id="loadingIcon" style="display:none" class="spinner"></span></h2>
+      <div id="resultJson" class="result"></div>
+      <iframe id="chartFrame" style="display:none"></iframe>
+    </div>
+
+    <script>
+      const form = document.getElementById("analyzeForm");
+      const resultCard = document.getElementById("resultCard");
+      const resultJson = document.getElementById("resultJson");
+      const chartFrame = document.getElementById("chartFrame");
+      const submitBtn = document.getElementById("submitBtn");
+      const loadingIcon = document.getElementById("loadingIcon");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        submitBtn.textContent = "分析中...";
+        resultCard.style.display = "none";
+        chartFrame.style.display = "none";
+        loadingIcon.style.display = "none";
+
+        const payload = {
+          stock_code: document.getElementById("stock_code").value.trim(),
+          days: Number(document.getElementById("days").value) || 60,
+        };
+
+        try {
+          const resp = await fetch("/analyze/single", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (!resp.ok) {
+            const err = await resp.json();
+            alert(err.detail || "服务器错误");
+            return;
+          }
+          const data = await resp.json();
+
+          // 展示 JSON
+          resultJson.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+          resultCard.style.display = "block";
+
+          // 轮询等待图表文件生成
+          if (data.chart_url) {
+            loadingIcon.style.display = "inline-block";
+            await waitForChart(data.chart_url);
+            loadingIcon.style.display = "none";
+            const absUrl = data.chart_url.startsWith("http")
+              ? data.chart_url
+              : `${location.origin}${data.chart_url}`;
+            chartFrame.src = absUrl;
+            chartFrame.style.display = "block";
+          }
+        } catch (err) {
+          console.error(err);
+          alert("请求失败，请检查控制台日志");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "开始分析";
+        }
+      });
+
+      /**
+       * 轮询 chart_url，直到返回 200 或达到最大重试次数
+       *
+       * @param {string} url
+       * @param {number} interval 轮询间隔 ms
+       * @param {number} maxTimes 最大重试次数
+       */
+      async function waitForChart(url, interval = 1500, maxTimes = 15) {
+        const full = url.startsWith("http") ? url : `${location.origin}${url}`;
+        for (let i = 0; i < maxTimes; i++) {
+          try {
+            const res = await fetch(full, { method: "HEAD" });
+            if (res.ok) return true; // 文件已就绪
+          } catch (_) {}
+          await new Promise((r) => setTimeout(r, interval));
+        }
+        alert("图表生成超时，请稍后手动刷新页面查看");
+        return false;
+      }
+    </script>
+  </body>
+</html>
