@@ -835,8 +835,11 @@ def generate_stock_charts(
             fig.update_yaxes(showgrid=True, gridcolor='rgba(200,200,200,0.2)')
 
             # 生成标准化文件名
-            clean_name = re.sub(r'[\\/*?:"<>|]', "", name)  # 过滤非法字符
-            filename = f"{code}_{clean_name}_analysis.html"
+            # ----- 生成标准化文件名 -----
+            clean_name = re.sub(r'[\\/*?:"<>|]', "", name)
+
+            filename = f"{code}_analysis.html" if clean_name.lower() == str(code).lower() \
+                    else f"{code}_{clean_name}_analysis.html"
             html_path = os.path.join(output_dir, filename)
 
             # 保存文件

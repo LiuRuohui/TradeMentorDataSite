@@ -39,6 +39,7 @@ build.bat
 runtime_hook.py
 data_archive/
 data_cache/
+static/
 
 # Logs
 *.log
