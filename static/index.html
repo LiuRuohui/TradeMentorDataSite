@@ -5,17 +5,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>股票分析系统 Demo</title>
     <style>
+      /* =============== Layout =============== */
+      :root {
+        --sidebar-width: 210px;
+        --bg-light: #f5f6fa;
+        --primary: #409eff;
+      }
+      * {
+        box-sizing: border-box;
+      }
       body {
+        margin: 0;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-        margin: 0;
-        padding: 0 1rem 3rem;
-        background: #f5f6fa;
+        background: var(--bg-light);
+        display: flex;
+        min-height: 100vh;
+        color: #333;
       }
-      h1 {
+      /* ---------- Sidebar ---------- */
+      .sidebar {
+        width: var(--sidebar-width);
+        background: #fff;
+        border-right: 1px solid #e4e6eb;
+        padding: 1rem 0.5rem;
+      }
+      .sidebar h2 {
         text-align: center;
-        margin: 1.2rem 0 2rem;
+        font-size: 1.25rem;
+        margin: 0 0 1rem;
       }
+      .menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .menu li {
+        margin: 0.5rem 0;
+      }
+      .menu button {
+        width: 100%;
+        background: none;
+        border: none;
+        padding: 0.6rem 0.8rem;
+        border-radius: 6px;
+        text-align: left;
+        cursor: pointer;
+        font-size: 0.95rem;
+        transition: background 0.2s;
+      }
+      .menu button.active,
+      .menu button:hover {
+        background: var(--primary);
+        color: #fff;
+      }
+      /* ---------- Main ---------- */
+      .main {
+        flex: 1;
+        padding: 1.5rem;
+        overflow-y: auto;
+      }
+      .main h1 {
+        text-align: center;
+        margin-top: 0;
+      }
+      /* ---------- Card ---------- */
       .card {
         background: #fff;
         border-radius: 8px;
@@ -24,21 +78,26 @@
         margin-bottom: 1.5rem;
       }
       label {
+        font-weight: 600;
         display: block;
         margin-bottom: 0.25rem;
-        font-weight: 600;
       }
       input[type="text"],
-      input[type="number"] {
+      input[type="number"],
+      textarea,
+      select {
         width: 100%;
         padding: 0.5rem 0.75rem;
         border: 1px solid #dcdfe6;
         border-radius: 4px;
         margin-bottom: 1rem;
-        box-sizing: border-box;
       }
-      button {
-        background: #409eff;
+      textarea {
+        resize: vertical;
+        min-height: 70px;
+      }
+      button[type="submit"] {
+        background: var(--primary);
         color: #fff;
         border: none;
         padding: 0.6rem 1.2rem;
@@ -46,16 +105,17 @@
         cursor: pointer;
         font-size: 1rem;
       }
-      button:disabled {
+      button[type="submit"][disabled] {
         opacity: 0.6;
         cursor: not-allowed;
       }
-      .result pre {
+      pre {
+        margin: 0;
         background: #f1f3f5;
         padding: 0.8rem 1rem;
         border-radius: 4px;
-        overflow-x: auto;
         white-space: pre-wrap;
+        overflow-x: auto;
       }
       iframe {
         border: none;
@@ -65,12 +125,41 @@
         border-radius: 8px;
         box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
       }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 0.4rem 0.6rem;
+        border: 1px solid #e5e7eb;
+        text-align: left;
+        font-size: 0.9rem;
+      }
+      th {
+        background: #fafafa;
+      }
+      .pagination {
+        margin: 0.75rem 0 0;
+        display: flex;
+        justify-content: center;   /* ← 居中 */
+        align-items: center;
+        gap: .6rem;
+        font-size: .9rem;
+      }
+      .pagination button {
+        /* margin-left: 0.3rem;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.85rem; */
+        padding: .35rem .8rem;
+      }
+      /* ---------- Spinner ---------- */
       .spinner {
         display: inline-block;
-        width: 22px;
-        height: 22px;
+        width: 20px;
+        height: 20px;
         border: 3px solid #cfd0d1;
-        border-top-color: #409eff;
+        border-top-color: var(--primary);
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
       }
@@ -83,109 +172,303 @@
   </head>
   <script src="popup-integration.js"></script>
   <body>
-    <h1>股票分析系统 Demo</h1>
+    <!-- ================= Sidebar ================= -->
+    <aside class="sidebar">
+      <h2>功能菜单</h2>
+      <ul class="menu">
+        <li><button id="nav-single" class="active">单只分析</button></li>
+        <li><button id="nav-batch">批量分析</button></li>
+        <li><button id="nav-list">获取股票列表</button></li>
+      </ul>
+    </aside>
 
-    <!-- 输入表单 -->
-    <div class="card">
-      <form id="analyzeForm">
-        <label for="stock_code">股票代码 *</label>
-        <input
-          type="text"
-          id="stock_code"
-          name="stock_code"
-          required
-          placeholder="如 600519 或 107.IWF"
-        />
+    <!-- ================= Main ================= -->
+    <main class="main">
+      <h1>股票分析系统 Demo</h1>
 
-        <label for="days">向前天数 (默认 60)</label>
-        <input type="number" id="days" name="days" value="60" min="15" />
+      <!-- ===== 单只分析 ===== -->
+      <section id="section-single">
+        <form id="form-single" class="card">
+          <label for="single-code">股票代码 *</label>
+          <input id="single-code" name="stock_code" placeholder="如 600519 或 107.IWF" required />
 
-        <button type="submit" id="submitBtn">开始分析</button>
-      </form>
-    </div>
+          <label for="single-days">向前天数 (默认 60)</label>
+          <input id="single-days" name="days" type="number" value="60" min="15" />
 
-    <!-- 结果区 -->
-    <div id="resultCard" class="card" style="display: none">
-      <h2>分析结果 <span id="loadingIcon" style="display:none" class="spinner"></span></h2>
-      <div id="resultJson" class="result"></div>
-      <iframe id="chartFrame" style="display:none"></iframe>
-    </div>
+          <button type="submit" id="btn-single">开始分析</button>
+          <span id="spin-single" style="display:none" class="spinner"></span>
+        </form>
+
+        <div id="res-single" style="display:none" class="card">
+          <h3>分析结果</h3>
+          <pre id="json-single"></pre>
+          <iframe id="frame-single" style="display:none"></iframe>
+        </div>
+      </section>
+
+      <!-- ===== 批量分析 ===== -->
+      <section id="section-batch" style="display:none">
+        <form id="form-batch" class="card">
+          <label for="batch-codes">股票代码 (逗号分隔)</label>
+          <textarea id="batch-codes" name="stock_codes" placeholder="如 600519,000001,107.IWF"></textarea>
+
+          <label for="batch-days">向前天数 (默认 60)</label>
+          <input id="batch-days" name="days" type="number" value="60" min="15" />
+
+          <label>
+            <input id="batch-topgains" type="checkbox" /> 按涨幅排序
+          </label>
+
+          <label for="batch-k">前 K 只 (默认 10)</label>
+          <input id="batch-k" type="number" value="10" min="1" />
+
+          <button type="submit" id="btn-batch">开始批量分析</button>
+          <span id="spin-batch" style="display:none" class="spinner"></span>
+        </form>
+
+        <div id="res-batch" style="display:none" class="card">
+          <h3>批量结果</h3>
+          <pre id="json-batch"></pre>
+        </div>
+      </section>
+
+      <!-- ===== 股票列表 ===== -->
+      <section id="section-list" style="display:none">
+        <form id="form-list" class="card">
+          <label for="list-ex">交易所 (留空=全部)</label>
+          <select id="list-ex">
+            <option value="">全部</option>
+            <option value="SH">SH</option>
+            <option value="SZ">SZ</option>
+            <option value="US">US</option>
+          </select>
+
+          <label><input id="list-refresh" type="checkbox" /> 强制刷新</label>
+
+          <label for="list-size">每页数量</label>
+          <input id="list-size" type="number" value="100" min="10" max="1000" />
+
+          <button type="submit" id="btn-list">获取列表</button>
+          <span id="spin-list" style="display:none" class="spinner"></span>
+        </form>
+
+        <div id="res-list" style="display:none" class="card">
+          <h3>股票列表</h3>
+          <div style="overflow-x:auto">
+            <table>
+              <thead>
+                <tr><th>代码</th><th>名称</th></tr>
+              </thead>
+              <tbody id="tbl-list"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <button id="prev-page">上一页</button>
+            <span id="page-info"></span>
+            <button id="next-page">下一页</button>
+          </div>
+        </div>
+      </section>
+    </main>
 
     <script>
-      const form = document.getElementById("analyzeForm");
-      const resultCard = document.getElementById("resultCard");
-      const resultJson = document.getElementById("resultJson");
-      const chartFrame = document.getElementById("chartFrame");
-      const submitBtn = document.getElementById("submitBtn");
-      const loadingIcon = document.getElementById("loadingIcon");
+      /* ================= Nav ================= */
+      const sections = {
+        single: document.getElementById("section-single"),
+        batch: document.getElementById("section-batch"),
+        list: document.getElementById("section-list"),
+      };
+      const navButtons = {
+        single: document.getElementById("nav-single"),
+        batch: document.getElementById("nav-batch"),
+        list: document.getElementById("nav-list"),
+      };
+      function show(tab) {
+        Object.keys(sections).forEach((k) => {
+          sections[k].style.display = k === tab ? "block" : "none";
+          navButtons[k].classList.toggle("active", k === tab);
+        });
+      }
+      navButtons.single.onclick = () => show("single");
+      navButtons.batch.onclick = () => show("batch");
+      navButtons.list.onclick = () => show("list");
 
-      form.addEventListener("submit", async (e) => {
+      /* ================= 单只分析 ================= */
+      const fSingle = document.getElementById("form-single");
+      fSingle.addEventListener("submit", async (e) => {
         e.preventDefault();
-        submitBtn.disabled = true;
-        submitBtn.textContent = "分析中...";
-        resultCard.style.display = "none";
-        chartFrame.style.display = "none";
-        loadingIcon.style.display = "none";
-
+        toggle("single", true);
         const payload = {
-          stock_code: document.getElementById("stock_code").value.trim(),
-          days: Number(document.getElementById("days").value) || 60,
+          stock_code: document.getElementById("single-code").value.trim(),
+          days: Number(document.getElementById("single-days").value) || 60,
         };
-
         try {
-          const resp = await fetch("/analyze/single", {
+          const r = await fetch("/analyze/single", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
-
-          if (!resp.ok) {
-            const err = await resp.json();
-            alert(err.detail || "服务器错误");
-            return;
-          }
-          const data = await resp.json();
-
-          // 展示 JSON
-          resultJson.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-          resultCard.style.display = "block";
-
-          // 轮询等待图表文件生成
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.detail || "服务器错误");
+          document.getElementById("json-single").textContent = JSON.stringify(
+            data,
+            null,
+            2
+          );
+          document.getElementById("res-single").style.display = "block";
+          // 轮询等待图表
           if (data.chart_url) {
-            loadingIcon.style.display = "inline-block";
-            await waitForChart(data.chart_url);
-            loadingIcon.style.display = "none";
-            const absUrl = data.chart_url.startsWith("http")
+            await waitForReady(data.chart_url, "spin-single");
+            const abs = data.chart_url.startsWith("http")
               ? data.chart_url
-              : `${location.origin}${data.chart_url}`;
-            chartFrame.src = absUrl;
-            chartFrame.style.display = "block";
+              : location.origin + data.chart_url;
+            const frame = document.getElementById("frame-single");
+            frame.src = abs;
+            frame.style.display = "block";
           }
         } catch (err) {
-          console.error(err);
-          alert("请求失败，请检查控制台日志");
+          alert(err.message);
         } finally {
-          submitBtn.disabled = false;
-          submitBtn.textContent = "开始分析";
+          toggle("single", false);
         }
       });
 
-      /**
-       * 轮询 chart_url，直到返回 200 或达到最大重试次数
-       *
-       * @param {string} url
-       * @param {number} interval 轮询间隔 ms
-       * @param {number} maxTimes 最大重试次数
-       */
-      async function waitForChart(url, interval = 1500, maxTimes = 15) {
-        const full = url.startsWith("http") ? url : `${location.origin}${url}`;
-        for (let i = 0; i < maxTimes; i++) {
+      /* ================= 批量分析 ================= */
+      const fBatch = document.getElementById("form-batch");
+      fBatch.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        toggle("batch", true);
+        const payload = {
+          stock_codes: document
+            .getElementById("batch-codes")
+            .value.split(/[,，\s]+/)
+            .filter(Boolean),
+          days: Number(document.getElementById("batch-days").value) || 60,
+          topgains: document.getElementById("batch-topgains").checked,
+          k: Number(document.getElementById("batch-k").value) || 10,
+        };
+        try {
+          const r = await fetch("/analyze/batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.detail || "服务器错误");
+          document.getElementById("json-batch").textContent = JSON.stringify(
+            data,
+            null,
+            2
+          );
+          document.getElementById("res-batch").style.display = "block";
+        } catch (err) {
+          alert(err.message);
+        } finally {
+          toggle("batch", false);
+        }
+      });
+
+      /* ================= 股票列表 ================= */
+      let curPage = 1;
+      let pageSize = 100;
+      let curEx = "";
+      let needRefresh = false;
+      document.getElementById("form-list").addEventListener("submit", (e) => {
+        e.preventDefault();
+        curPage = 1;
+        fetchList();
+      });
+      document.getElementById("prev-page").onclick = () => {
+        if (curPage > 1) {
+          curPage--; 
+          renderPage();
+        }
+      };
+      document.getElementById("next-page").onclick = () => {
+        curPage++; 
+        renderPage();
+      };
+
+      let listRows   = [];     // 后端一次性返回的所有行
+      let totalPages = 1;      // 由 count / pageSize 计算
+
+      async function fetchList() {
+        curEx = document.getElementById("list-ex").value;
+        pageSize = Number(document.getElementById("list-size").value) || 100;
+        needRefresh = document.getElementById("list-refresh").checked;
+        toggle("list", true);
+        try {
+          const payload = {
+            exchange: curEx || undefined,
+            page: curPage,
+            page_size: pageSize,
+            refresh: needRefresh,
+          };
+          const r = await fetch("/stocks/list", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.detail || "服务器错误");
+          listRows   = data.data;                 // 缓存在前端
+          totalPages = Math.max(1, Math.ceil(data.count / pageSize));
+          renderPage();                           // 只渲染本页
+          document.getElementById("res-list").style.display = "block";
+          // renderTable(data.data);
+          // document.getElementById("page-info").textContent = `第 ${curPage} 页 / 共 ${Math.ceil(
+          //   data.count / pageSize
+          // )} 页`;
+        } catch (err) {
+          alert(err.message);
+        } finally {
+          toggle("list", false);
+        }
+      }
+      function renderTable(rows) {
+        const tbody = document.getElementById("tbl-list");
+        tbody.innerHTML = rows
+          .map((r) => `<tr><td>${r.code}</td><td>${r.name}</td></tr>`) // eslint-disable-line
+          .join("");
+      }
+      function renderPage() {
+        /* 计算当前页需要展示的切片 */
+        const start = (curPage - 1) * pageSize;
+        const end   = start + pageSize;
+        const pageRows = listRows.slice(start, end);
+
+        /* 渲染表格 */
+        const tbody = document.getElementById("tbl-list");
+        tbody.innerHTML = pageRows
+          .map(r => `<tr><td>${r.code}</td><td>${r.name}</td></tr>`)
+          .join("");
+
+        /* 更新分页信息 & 按钮状态 */
+        document.getElementById("page-info").textContent =
+          `第 ${curPage} 页 / 共 ${totalPages} 页`;
+
+        document.getElementById("prev-page").disabled = curPage <= 1;
+        document.getElementById("next-page").disabled = curPage >= totalPages;
+      }
+
+      /* ================= 工具函数 ================= */
+      function toggle(scope, loading) {
+        document.getElementById(`btn-${scope}`).disabled = loading;
+        document.getElementById(`spin-${scope}`).style.display = loading
+          ? "inline-block"
+          : "none";
+      }
+      async function waitForReady(url, spinId, interval = 1500, times = 15) {
+        const full = url.startsWith("http") ? url : location.origin + url;
+        const spin = document.getElementById(spinId);
+        for (let i = 0; i < times; i++) {
           try {
             const res = await fetch(full, { method: "HEAD" });
-            if (res.ok) return true; // 文件已就绪
+            if (res.ok) return true;
           } catch (_) {}
           await new Promise((r) => setTimeout(r, interval));
         }
+        spin.style.display = "none";
         alert("图表生成超时，请稍后手动刷新页面查看");
         return false;
       }
