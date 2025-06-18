@@ -614,11 +614,13 @@ def generate_stock_charts(
             code, name = stock['代码'], stock['名称']
             hist = get_historical_data(code, start_date, end_date)
             if hist.empty:
+                logger.debug(f"股票 {code} {name} 的历史数据为空，跳过分析")
                 continue
             ind = calculate_technical_indicators(hist)
             if not ind:
+                logger.debug(f"股票 {code} {name} 的技术指标计算失败，跳过分析")
                 continue
-
+            
             # ======================
             # 专业级布局配置
             # ======================
@@ -670,7 +672,56 @@ def generate_stock_charts(
                 close=hist['close'],
                 increasing_line_color='#E74C3C',  # 专业红
                 decreasing_line_color='#2ECC71',  # 专业绿
-                name='价格走势'
+                name='价格走势',
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['K线'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
+                # text=[
+                #     f"日期: {date}<br>" +
+                #     f"开盘: ¥{open:.2f}<br>" +
+                #     f"最高: ¥{high:.2f}<br>" +
+                #     f"最低: ¥{low:.2f}<br>" +
+                #     f"收盘: ¥{close:.2f}<br>" +
+                #     f"成交量: {volume:,.0f}<br>" +
+                #     f"MA5: ¥{ma5:.2f}<br>" +
+                #     f"MA10: ¥{ma10:.2f}<br>" +
+                #     f"MA20: ¥{ma20:.2f}"
+                #     for date, open, high, low, close, volume, ma5, ma10, ma20, *_ in zip(
+                #         hist.index.strftime('%Y-%m-%d'),
+                #         hist['open'],
+                #         hist['high'],
+                #         hist['low'],
+                #         hist['close'],
+                #         hist['volume'],
+                #         ind['ma5'],
+                #         ind['ma10'],
+                #         ind['ma20'],
+                #         ind['dif'],
+                #         ind['dea'],
+                #         ind['macd'],
+                #         ind['k'],
+                #         ind['d'],
+                #         ind['j'],
+                #         ind['rsi']
+                #     )
+                # ],
+                # hoverinfo='text'
             ), row=1, col=1)
 
             # 三重均线系统
@@ -685,8 +736,74 @@ def generate_stock_charts(
                     y=ind[ma],
                     line=dict(color=color, width=1.2),
                     name=legend,
-                    showlegend=False
+                    showlegend=False,
+                    customdata=np.stack((
+                        hist.index.strftime('%Y-%m-%d'),
+                        hist['open'],
+                        hist['high'],
+                        hist['low'],
+                        hist['close'],
+                        hist['volume'],
+                        ind['ma5'],
+                        ind['ma10'],
+                        ind['ma20'],
+                        ind['dif'],
+                        ind['dea'],
+                        ind['macd'],
+                        ind['k'],
+                        ind['d'],
+                        ind['j'],
+                        ind['rsi'],
+                        [legend] * len(hist.index)  # 添加数据类型标识
+                    ), axis=-1),
                 ), row=1, col=1)
+
+            # 添加点击事件配置
+            fig.update_layout(
+                clickmode='event+select',
+                updatemenus=[{
+                    'buttons': [],
+                    'showactive': False,
+                    'type': 'buttons',
+                    'direction': 'right',
+                    'visible': False  # 隐藏按钮，只使用点击事件功能
+                }]
+            )
+
+            # 添加JavaScript回调函数来处理点击事件
+            fig.add_annotation(
+                text='',
+                showarrow=False,
+                font=dict(size=12),
+                xref='paper',
+                yref='paper',
+                x=0,
+                y=1.1,
+                bordercolor='#c7c7c7',
+                borderwidth=1,
+                borderpad=4,
+                bgcolor='#ff7f0e',
+                opacity=0.8
+            )
+
+            # 添加JavaScript代码来处理点击事件
+            fig.update_layout(
+                newshape_line_color='#ff0000',
+                annotations=[{
+                    'text': '',
+                    'showarrow': False,
+                    'font': {'size': 12},
+                    'xref': 'paper',
+                    'yref': 'paper',
+                    'x': 0,
+                    'y': 1.1,
+                    'bordercolor': '#c7c7c7',
+                    'borderwidth': 1,
+                    'borderpad': 4,
+                    'bgcolor': '#ff7f0e',
+                    'opacity': 0.8
+                }]
+            )
 
             # ---- 第2行左：纯净MACD ----
             fig.add_trace(go.Bar(
@@ -694,7 +811,26 @@ def generate_stock_charts(
                 y=ind['macd'],
                 marker_color=['#2ecc71' if v <0 else '#e74c3c' for v in ind['macd']],
                 name='MACD柱',
-                showlegend=False
+                showlegend=False,
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['MACD'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=2, col=1)
 
             fig.add_trace(go.Scatter(
@@ -702,7 +838,26 @@ def generate_stock_charts(
                 y=ind['dif'],
                 line=dict(color='#3498db', width=1.5),
                 name='DIF',
-                showlegend=False
+                showlegend=False,
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['DIF'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=2, col=1)
 
             fig.add_trace(go.Scatter(
@@ -710,7 +865,26 @@ def generate_stock_charts(
                 y=ind['dea'],
                 line=dict(color='#f1c40f', width=1.5),
                 name='DEA',
-                showlegend=False
+                showlegend=False,
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['DEA'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=2, col=1)
 
             # ---- 第2行右：纯净KDJ ----
@@ -719,7 +893,26 @@ def generate_stock_charts(
                 y=ind['k'],
                 line=dict(color='#e74c3c', width=1.5),
                 name='K',
-                showlegend=False
+                showlegend=False,
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['KDJ-K'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=2, col=2)
 
             fig.add_trace(go.Scatter(
@@ -727,7 +920,26 @@ def generate_stock_charts(
                 y=ind['d'],
                 line=dict(color='#2ecc71', width=1.5),
                 name='D',
-                showlegend=False
+                showlegend=False,
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['KDJ-D'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=2, col=2)
 
             fig.add_trace(go.Scatter(
@@ -735,7 +947,26 @@ def generate_stock_charts(
                 y=ind['j'],
                 line=dict(color='#3498db', width=1.5),
                 name='J',
-                showlegend=False
+                showlegend=False,
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['KDJ-J'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=2, col=2)
 
             # ---- 第3行：RSI指标 ----
@@ -743,7 +974,26 @@ def generate_stock_charts(
                 x=hist.index,
                 y=ind['rsi'],
                 line=dict(color='#9B59B6', width=1.2),
-                name='RSI'
+                name='RSI',
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['RSI'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=3, col=1)
             # 专业参考线
             fig.add_hline(y=30, line=dict(color='#95A5A6', dash='dot'), row=3, col=1)
@@ -756,13 +1006,51 @@ def generate_stock_charts(
                 x=hist.index,
                 y=hist['volume'],
                 marker_color=vol_colors,
-                name='成交量'
+                name='成交量',
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['成交量'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=3, col=2)
             fig.add_trace(go.Scatter(
                 x=hist.index,
                 y=ind['volume_ma5'],
                 line=dict(color='#F39C12', width=1.2),
-                name='成交量MA5'
+                name='成交量MA5',
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['成交量MA5'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=3, col=2)
 
             # ---- 第4行：价格趋势 ----
@@ -770,7 +1058,26 @@ def generate_stock_charts(
                 x=hist.index,
                 y=hist['close'],
                 line=dict(color='#2C3E50', width=1.5),
-                name='收盘价'
+                name='收盘价',
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['收盘价'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=4, col=1)
 
             # ---- 第4行：波动率分析 ----
@@ -778,7 +1085,26 @@ def generate_stock_charts(
                 x=hist.index,
                 y=hist['close'].pct_change().rolling(5).std(),
                 line=dict(color='#E67E22', width=1.2),
-                name='波动率'
+                name='波动率',
+                customdata=np.stack((
+                    hist.index.strftime('%Y-%m-%d'),
+                    hist['open'],
+                    hist['high'],
+                    hist['low'],
+                    hist['close'],
+                    hist['volume'],
+                    ind['ma5'],
+                    ind['ma10'],
+                    ind['ma20'],
+                    ind['dif'],
+                    ind['dea'],
+                    ind['macd'],
+                    ind['k'],
+                    ind['d'],
+                    ind['j'],
+                    ind['rsi'],
+                    ['波动率'] * len(hist.index)  # 添加数据类型标识
+                ), axis=-1),
             ), row=4, col=2)
 
             # 显示所有行的x轴（关键修改）
@@ -840,11 +1166,1130 @@ def generate_stock_charts(
             html_path = os.path.join(output_dir, filename)
 
             # 保存文件
-            fig.write_html(
-                html_path,
-                include_plotlyjs='cdn',
-                config={'scrollZoom': True}
-            )
+            with open(html_path, 'w', encoding='utf-8') as f:
+                html_content = fig.to_html(
+                    include_plotlyjs='cdn',
+                    config={'scrollZoom': True}
+                )
+                
+                # 添加自定义JavaScript代码
+                custom_js = """
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        // 创建输入控件面板 - 放在右上角
+                        var controlPanel = document.createElement('div');
+                        controlPanel.id = 'control-panel';
+                        controlPanel.style.cssText = 'position:fixed;top:20px;right:20px;background:white;padding:15px;border:1px solid #ccc;border-radius:5px;box-shadow:2px 2px 10px rgba(0,0,0,0.1);z-index:1000;';
+                        controlPanel.innerHTML = `
+                            <h4 style="margin-top:0;color:#2C3E50;">分析设置</h4>
+                            <div style="margin-bottom:10px;">
+                                <label for="days-input" style="margin-right:10px;">前后天数:</label>
+                                <input type="number" id="days-input" value="3" min="0" max="10" style="width:60px;padding:2px;">
+                                <small style="display:block;margin-top:3px;color:#666;">设置点击时显示前后n天的数据</small>
+                            </div>
+                            <div style="margin-bottom:10px;">
+                                <label for="debate-round-input" style="margin-right:10px;">辩论轮数:</label>
+                                <input type="number" id="debate-round-input" value="2" min="1" max="5" style="width:60px;padding:2px;">
+                                <small style="display:block;margin-top:3px;color:#666;">设置AI智能体辩论的轮数</small>
+                            </div>
+                        `;
+                        document.body.appendChild(controlPanel);
+                        
+                        // 切换数据详情的可见性
+                        function toggleDataDetails(dayId) {
+                            var detailsDiv = document.getElementById('details-' + dayId);
+                            var toggleBtn = document.getElementById('toggle-' + dayId);
+                            if (detailsDiv.style.display === 'none') {
+                                detailsDiv.style.display = 'block';
+                                toggleBtn.textContent = '▼';
+                            } else {
+                                detailsDiv.style.display = 'none';
+                                toggleBtn.textContent = '▶';
+                            }
+                        }
+                        
+                        // 切换分析结果的展开/折叠
+                        function toggleAnalysisResult(resultId) {
+                            var previewDiv = document.getElementById('preview-' + resultId);
+                            var fullDiv = document.getElementById('full-' + resultId);
+                            var toggleBtn = document.getElementById('toggle-' + resultId);
+                            var streamDiv = document.getElementById('analysis-stream');
+                            
+                            if (fullDiv.style.display === 'none') {
+                                // 展开完整结果
+                                previewDiv.style.display = 'none';
+                                fullDiv.style.display = 'block';
+                                toggleBtn.textContent = '▲';
+                            } else {
+                                // 折叠显示预览
+                                previewDiv.style.display = 'block';
+                                fullDiv.style.display = 'none';
+                                toggleBtn.textContent = '▼';
+                            }
+                            
+                            // 展开/折叠后自动调整滚动位置
+                            setTimeout(function() {
+                                if (streamDiv) {
+                                    streamDiv.scrollTop = streamDiv.scrollHeight;
+                                }
+                            }, 100);
+                        }
+                        
+                        // 关闭数据面板并显示控制面板
+                        function closeDataPanel() {
+                            var dataPanel = document.getElementById('data-panel');
+                            var controlPanel = document.getElementById('control-panel');
+                            if (dataPanel) {
+                                dataPanel.style.display = 'none';
+                            }
+                            if (controlPanel) {
+                                controlPanel.style.display = 'block';
+                            }
+                        }
+                        
+                        // 智能分析功能
+                        function performSmartAnalysis() {
+                            var analysisBtn = document.getElementById('analysis-btn');
+                            var analysisResult = document.getElementById('analysis-result');
+                            
+                            // 显示加载状态
+                            analysisBtn.disabled = true;
+                            analysisBtn.textContent = '分析中...';
+                            analysisBtn.style.background = '#95A5A6';
+                            
+                            // 获取当前选中数据点的历史数据
+                            var currentData = window.currentAnalysisData;
+                            if (!currentData) {
+                                console.error('没有可用的分析数据');
+                                return;
+                            }
+                            
+                            // 获取用户设置的辩论轮数
+                            var debateRounds = parseInt(document.getElementById('debate-round-input').value) || 2;
+                            
+                            // 初始化流式显示界面
+                            analysisResult.innerHTML = `
+                                <div style="background:#f8f9fa;border-radius:5px;padding:15px;margin-top:10px;">
+                                    <h4 style="margin-top:0;color:#2C3E50;border-bottom:1px solid #dee2e6;padding-bottom:8px;">
+                                        🤖 AI多智能体分析进行中 (${debateRounds}轮辩论)
+                                    </h4>
+                                    <div id="analysis-stream" style="background:white;padding:15px;border-radius:3px;border:1px solid #dee2e6;min-height:150px;max-height:400px;overflow-y:auto;">
+                                        <div class="status-message" style="color:#666;font-style:italic;">正在连接分析服务...</div>
+                                    </div>
+                                    <div style="margin-top:10px;font-size:12px;color:#666;">
+                                        💡 提示: 多个AI智能体将进行${debateRounds}轮协作分析，请耐心等待完整结果
+                                    </div>
+                                </div>
+                            `;
+                            
+                            var streamDiv = document.getElementById('analysis-stream');
+                            
+                            // 按照新的数据格式准备发送的数据
+                            var requestData = [];
+                            
+                            // 添加每一天的数据
+                            currentData.priceData.forEach(function(dayPrice, index) {
+                                var dayData = {
+                                    "type": "price_historical",
+                                    "date": dayPrice.date,
+                                    "data": {
+                                        "symbol": currentData.symbol,
+                                        "name": currentData.name,
+                                        "open": dayPrice.open,
+                                        "high": dayPrice.high,
+                                        "low": dayPrice.low,
+                                        "close": dayPrice.close,
+                                        "volume": dayPrice.volume
+                                    }
+                                };
+                                
+                                // 如果是选中的日期，添加技术指标
+                                if (dayPrice.date === currentData.selectedDate) {
+                                    dayData.data.indicators = currentData.indicators;
+                                }
+                                
+                                requestData.push(dayData);
+                            });
+                            
+                            // 添加配置信息作为最后一个元素
+                            requestData.push({
+                                "debate_round": debateRounds,
+                                "selected_date": currentData.selectedDate,
+                                "selected_data": currentData.selectedDataType || "K线"
+                            });
+                            
+                            // 调试：打印发送的数据
+                            console.log('发送智能分析数据:', requestData);
+                            
+                            // 使用fetch发起POST请求启动SSE流
+                            fetch('http://localhost:8000/api/v1/debate/stream', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'text/event-stream',
+                                    'Cache-Control': 'no-cache'
+                                },
+                                body: JSON.stringify(requestData)
+                            })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                                
+                                // 处理SSE流
+                                const reader = response.body.getReader();
+                                const decoder = new TextDecoder();
+                                
+                                function processStream() {
+                                    return reader.read().then(({ done, value }) => {
+                                        if (done) {
+                                            // 流结束
+                                            analysisBtn.disabled = false;
+                                            analysisBtn.textContent = '智能分析';
+                                            analysisBtn.style.background = '#3498DB';
+                                            
+                                            var completeDiv = document.createElement('div');
+                                            completeDiv.style.cssText = 'margin:10px 0;padding:10px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:5px;color:#38a169;font-weight:bold;';
+                                            completeDiv.innerHTML = '✅ 分析完成';
+                                            streamDiv.appendChild(completeDiv);
+                                            streamDiv.scrollTop = streamDiv.scrollHeight;
+                                            return;
+                                        }
+                                        
+                                        // 处理接收到的数据
+                                        const chunk = decoder.decode(value);
+                                        const lines = chunk.split('\\n');
+                                        
+                                        lines.forEach(line => {
+                                            if (line.startsWith('data: ')) {
+                                                try {
+                                                    const jsonData = line.substring(6);
+                                                    if (jsonData.trim()) {
+                                                        const eventData = JSON.parse(jsonData);
+                                                        handleStreamEvent(eventData, streamDiv);
+                                                    }
+                                                } catch (e) {
+                                                    console.error('解析SSE数据失败:', e);
+                                                }
+                                            }
+                                        });
+                                        
+                                        // 继续读取
+                                        return processStream();
+                                    });
+                                }
+                                
+                                return processStream();
+                            })
+                            .catch(error => {
+                                console.error('智能分析请求失败:', error);
+                                
+                                // 恢复按钮状态
+                                analysisBtn.disabled = false;
+                                analysisBtn.textContent = '智能分析';
+                                analysisBtn.style.background = '#3498DB';
+                                
+                                // 显示错误信息
+                                var errorContent = `
+                                    <div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:5px;padding:15px;margin-top:10px;">
+                                        <h4 style="margin-top:0;color:#E53E3E;">❌ 分析失败</h4>
+                                        <p style="margin:5px 0;color:#666;">无法连接到智能分析服务</p>
+                                        <p style="margin:5px 0;font-size:12px;color:#999;">错误详情: ${error.message}</p>
+                                        <p style="margin:5px 0;font-size:11px;color:#999;">请确保API服务正在运行在 http://localhost:8000</p>
+                                    </div>
+                                `;
+                                analysisResult.innerHTML = errorContent;
+                            });
+                        }
+                        
+                        // 轮次管理变量
+                        var currentRoundContainer = null;
+                        var currentRoundContent = null;
+                        
+                        // 处理流式事件的函数
+                        function handleStreamEvent(eventData, streamDiv) {
+                            // 过滤掉heartbeat事件
+                            if (eventData.event === 'heartbeat') {
+                                return;
+                            }
+                            
+                            // 特殊处理轮次事件
+                            if (eventData.event === 'analysis_round_start') {
+                                handleRoundStart(eventData, streamDiv);
+                                return;
+                            } else if (eventData.event === 'analysis_round_complete') {
+                                handleRoundComplete(eventData);
+                                return;
+                            }
+                            
+                            var messageDiv = document.createElement('div');
+                            messageDiv.style.cssText = 'margin:6px 0;padding:8px 12px;border-radius:5px;animation:fadeIn 0.3s ease-in;';
+                            
+                            // 判断是否需要展示详细内容
+                            var needsContent = [
+                                'llm_call_complete', 'llm_call_error',
+                                'prepare_inputs_start', 'prepare_inputs_complete', 
+                                'decision_criteria_check', 'decision_criteria_result',
+                                'finalize_decision_complete', 'analysis_round_complete',
+                                'agent_task_complete'
+                            ].includes(eventData.event);
+                            
+                            // 根据事件类别设置不同的视觉样式
+                            switch(true) {
+                                // 工作流级别事件 - 蓝色系
+                                case ['workflow_start', 'workflow_complete', 'workflow_error', 'workflow_result'].includes(eventData.event):
+                                    handleWorkflowEvent(eventData, messageDiv, needsContent);
+                                    break;
+                                
+                                // 节点级别事件 - 绿色系
+                                case eventData.event.includes('prepare_inputs') || 
+                                     eventData.event.includes('decision_criteria') || 
+                                     eventData.event.includes('finalize_decision'):
+                                    handleNodeEvent(eventData, messageDiv, needsContent);
+                                    break;
+                                
+                                // Agent级别事件 - 紫色/橙色系
+                                case ['agent_task_start', 'agent_task_complete', 'llm_call_start', 'llm_call_complete', 'llm_call_error'].includes(eventData.event):
+                                    handleAgentEvent(eventData, messageDiv, needsContent);
+                                    break;
+                                
+                                // 连接级别事件 - 灰色系
+                                case ['connection_established', 'stream_error'].includes(eventData.event):
+                                    handleConnectionEvent(eventData, messageDiv, needsContent);
+                                    break;
+                                
+                                // 其他事件
+                                default:
+                                    handleOtherEvent(eventData, messageDiv, needsContent);
+                            }
+                            
+                            // 判断是否添加到当前轮次容器中
+                            var targetContainer = (currentRoundContent && 
+                                ['agent_task_start', 'agent_task_complete', 'llm_call_start', 'llm_call_complete', 'llm_call_error'].includes(eventData.event)) ? 
+                                currentRoundContent : streamDiv;
+                            
+                            targetContainer.appendChild(messageDiv);
+                            
+                            // 平滑滚动到底部，确保始终显示最新输出
+                            setTimeout(function() {
+                                streamDiv.scrollTop = streamDiv.scrollHeight;
+                                streamDiv.scrollTo({
+                                    top: streamDiv.scrollHeight,
+                                    behavior: 'smooth'
+                                });
+                            }, 100);
+                        }
+                        
+                        // 工作流级别事件处理
+                        function handleWorkflowEvent(eventData, messageDiv, needsContent) {
+                            var icons = {
+                                'workflow_start': '🚀',
+                                'workflow_complete': '✅', 
+                                'workflow_error': '❌',
+                                'workflow_result': '📋'
+                            };
+                            
+                            messageDiv.style.background = 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)';
+                            messageDiv.style.border = '2px solid #2196f3';
+                            messageDiv.style.borderLeft = '5px solid #1976d2';
+                            
+                            var title = getEventTitle(eventData.event, icons[eventData.event] || '🔄');
+                            var description = eventData.data.description || eventData.data.message || '';
+                            
+                            if (needsContent && description) {
+                                var contentId = generateContentId();
+                                messageDiv.innerHTML = createExpandableContent(contentId, title, description, '#1976d2');
+                            } else {
+                                messageDiv.innerHTML = `<div style="font-weight:bold;color:#1976d2;font-size:14px;">${title}</div>`;
+                            }
+                        }
+                        
+                        // 节点级别事件处理
+                        function handleNodeEvent(eventData, messageDiv, needsContent) {
+                            var icons = {
+                                'prepare_inputs_start': '📥', 'prepare_inputs_complete': '📥',
+                                'analysis_round_start': '🔄', 'analysis_round_complete': '🔄',
+                                'decision_criteria_check': '⚖️', 'decision_criteria_result': '⚖️',
+                                'finalize_decision_start': '🎯', 'finalize_decision_complete': '🎯'
+                            };
+                            
+                            var title = getEventTitle(eventData.event, icons[eventData.event] || '📋');
+                            var content = eventData.data.result || eventData.data.summary || eventData.data.description || eventData.data.message || eventData.data.details || '';
+                            
+                            // 中间过程事件用灰色小字显示
+                            var isProcessEvent = ['prepare_inputs_start', 'finalize_decision_start', 'decision_criteria_check'].includes(eventData.event);
+                            
+                            if (isProcessEvent) {
+                                // 灰色小字显示中间过程
+                                messageDiv.style.background = 'transparent';
+                                messageDiv.style.border = 'none';
+                                messageDiv.style.padding = '4px 8px';
+                                messageDiv.style.margin = '2px 0';
+                                messageDiv.innerHTML = `<div style="font-size:11px;color:#999;font-style:italic;">${title}</div>`;
+                            } else {
+                                // 重要完成事件正常显示
+                                var isComplete = eventData.event.includes('complete') || eventData.event.includes('result');
+                                
+                                // 特殊处理 finalize_decision_complete
+                                if (eventData.event === 'finalize_decision_complete') {
+                                    handleFinalDecision(eventData, messageDiv);
+                                    return;
+                                }
+                                
+                                messageDiv.style.background = isComplete ? 
+                                    'linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%)' : 
+                                    'linear-gradient(135deg, #fff3e0 0%, #ffcc02 20%)';
+                                messageDiv.style.border = isComplete ? '2px solid #4caf50' : '2px solid #ff9800';
+                                messageDiv.style.borderLeft = isComplete ? '5px solid #388e3c' : '5px solid #f57c00';
+                                
+                                if (needsContent && content) {
+                                    var contentId = generateContentId();
+                                    var color = isComplete ? '#388e3c' : '#f57c00';
+                                    messageDiv.innerHTML = createExpandableContent(contentId, title, content, color);
+                                } else {
+                                    var color = isComplete ? '#388e3c' : '#f57c00';
+                                    messageDiv.innerHTML = `<div style="font-weight:bold;color:${color};font-size:14px;">${title}</div>`;
+                                }
+                            }
+                        }
+                        
+                        // Agent级别事件处理  
+                        function handleAgentEvent(eventData, messageDiv, needsContent) {
+                            var icons = {
+                                'agent_task_start': '🤖',
+                                'agent_task_complete': '✅',
+                                'llm_call_start': '🧠',
+                                'llm_call_complete': '💭',
+                                'llm_call_error': '❌'
+                            };
+                            
+                            var agentRole = eventData.data.agent_role || '';
+                            var title = getEventTitle(eventData.event, icons[eventData.event] || '🔧', agentRole);
+                            
+                            // 获取内容
+                            var content = '';
+                            if (eventData.event === 'agent_task_complete') {
+                                content = eventData.data.result || eventData.data.analysis || eventData.data.response || eventData.data.output || eventData.data.message || eventData.data.content || '';
+                            } else {
+                                content = eventData.data.result || eventData.data.summary || eventData.data.error || eventData.data.response || '';
+                            }
+                            
+                            // agent_task_complete, llm_call_complete 和 llm_call_error 需要详细展示
+                            if (['agent_task_complete', 'llm_call_complete', 'llm_call_error'].includes(eventData.event)) {
+                                var isError = eventData.event.includes('error');
+                                var isAgentTask = eventData.event === 'agent_task_complete';
+                                
+                                if (isError) {
+                                    messageDiv.style.background = 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)';
+                                    messageDiv.style.border = '2px solid #f44336';
+                                    messageDiv.style.borderLeft = '5px solid #d32f2f';
+                                } else if (isAgentTask) {
+                                    messageDiv.style.background = 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)';
+                                    messageDiv.style.border = '2px solid #2196f3';
+                                    messageDiv.style.borderLeft = '5px solid #1976d2';
+                                } else {
+                                    messageDiv.style.background = 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)';
+                                    messageDiv.style.border = '2px solid #9c27b0';
+                                    messageDiv.style.borderLeft = '5px solid #7b1fa2';
+                                }
+                                
+                                if (needsContent && content) {
+                                    var contentId = generateContentId();
+                                    var color = isError ? '#d32f2f' : (isAgentTask ? '#1976d2' : '#7b1fa2');
+                                    
+                                    // 为agent_task_complete特殊格式化内容
+                                    if (isAgentTask) {
+                                        content = formatAgentAnalysis(content);
+                                    }
+                                    
+                                    messageDiv.innerHTML = createExpandableContent(contentId, title, content, color);
+                                } else {
+                                    var color = isError ? '#d32f2f' : (isAgentTask ? '#1976d2' : '#7b1fa2');
+                                    messageDiv.innerHTML = `<div style="font-weight:bold;color:${color};font-size:14px;">${title}</div>`;
+                                }
+                            } else {
+                                // 其他 Agent 事件：灰色小号字体，简洁显示
+                                messageDiv.style.background = 'transparent';
+                                messageDiv.style.border = 'none';
+                                messageDiv.style.padding = '4px 8px';
+                                messageDiv.style.margin = '2px 0';
+                                messageDiv.innerHTML = `<div style="font-size:11px;color:#999;font-style:italic;">${title}</div>`;
+                            }
+                        }
+                        
+                        // 连接级别事件处理
+                        function handleConnectionEvent(eventData, messageDiv, needsContent) {
+                            var icons = {
+                                'connection_established': '🔗',
+                                'stream_error': '⚠️'
+                            };
+                            
+                            messageDiv.style.background = 'linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%)';
+                            messageDiv.style.border = '1px solid #bdbdbd';
+                            messageDiv.style.borderLeft = '3px solid #757575';
+                            messageDiv.style.fontSize = '12px';
+                            messageDiv.style.opacity = '0.8';
+                            
+                            var title = getEventTitle(eventData.event, icons[eventData.event] || '📡');
+                            messageDiv.innerHTML = `<div style="font-weight:bold;color:#616161;">${title}</div>`;
+                        }
+                        
+                        // 其他事件处理
+                        function handleOtherEvent(eventData, messageDiv, needsContent) {
+                            messageDiv.style.background = '#fafafa';
+                            messageDiv.style.border = '1px solid #e0e0e0';
+                            messageDiv.style.borderLeft = '3px solid #9e9e9e';
+                            
+                            var title = getEventTitle(eventData.event, '📝');
+                            messageDiv.innerHTML = `<div style="font-weight:bold;color:#666;font-size:13px;">${title}</div>`;
+                        }
+                        
+                        // 辅助函数
+                        function getEventTitle(eventType, icon, agentRole = '') {
+                            var titles = {
+                                'workflow_start': '工作流启动',
+                                'workflow_complete': '工作流完成', 
+                                'workflow_error': '工作流错误',
+                                'workflow_result': '最终结果',
+                                'prepare_inputs_start': '准备输入数据',
+                                'prepare_inputs_complete': '输入数据就绪',
+                                'analysis_round_start': '开始分析轮次',
+                                'analysis_round_complete': '分析轮次完成',
+                                'decision_criteria_check': '检查决策条件',
+                                'decision_criteria_result': '决策条件结果',
+                                'finalize_decision_start': '开始最终决策',
+                                'finalize_decision_complete': '最终决策完成',
+                                'agent_task_start': '智能体任务开始',
+                                'agent_task_complete': '智能体任务完成',
+                                'llm_call_start': 'LLM调用开始',
+                                'llm_call_complete': 'LLM分析完成',
+                                'llm_call_error': 'LLM调用错误',
+                                'connection_established': '连接已建立',
+                                'stream_error': '流处理错误'
+                            };
+                            
+                            var baseTitle = titles[eventType] || eventType.replace(/_/g, ' ');
+                            return agentRole ? `${icon} ${agentRole} - ${baseTitle}` : `${icon} ${baseTitle}`;
+                        }
+                        
+                        function generateContentId() {
+                            return 'content-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                        }
+                        
+                        function createExpandableContent(contentId, title, content, color) {
+                            var preview = content.length > 120 ? content.substring(0, 120) + '...' : content;
+                            var needsToggle = content.length > 120;
+                            
+                            if (needsToggle) {
+                                return `
+                                    <div onclick="toggleContent('${contentId}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                        <div style="font-weight:bold;color:${color};font-size:14px;">${title}</div>
+                                        <span id="toggle-${contentId}" style="font-weight:bold;color:${color};">▼</span>
+                                    </div>
+                                    <div id="preview-${contentId}" style="font-size:12px;line-height:1.4;color:#666;">
+                                        ${preview}
+                                    </div>
+                                    <div id="full-${contentId}" style="display:none;font-size:12px;line-height:1.4;white-space:pre-wrap;background:rgba(255,255,255,0.8);padding:10px;border-radius:3px;border:1px solid rgba(0,0,0,0.1);max-height:250px;overflow-y:auto;margin-top:8px;">
+                                        ${content}
+                                    </div>
+                                `;
+                            } else {
+                                return `
+                                    <div style="font-weight:bold;color:${color};font-size:14px;margin-bottom:6px;">${title}</div>
+                                    <div style="font-size:12px;line-height:1.4;color:#666;">${content}</div>
+                                `;
+                            }
+                        }
+                        
+                        // 轮次开始处理
+                        function handleRoundStart(eventData, streamDiv) {
+                            var roundNumber = eventData.data.round || eventData.data.round_number || '?';
+                            var roundId = 'round-' + roundNumber + '-' + Date.now();
+                            
+                            // 创建轮次容器
+                            var roundContainer = document.createElement('div');
+                            roundContainer.id = roundId;
+                            roundContainer.style.cssText = 'margin:10px 0;border:2px solid #ff9800;border-radius:8px;background:linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);';
+                            
+                            // 创建轮次标题（可点击）
+                            var roundHeader = document.createElement('div');
+                            roundHeader.style.cssText = 'padding:12px 15px;cursor:pointer;border-bottom:1px solid #ffcc02;background:rgba(255,152,0,0.1);';
+                            roundHeader.onclick = function() { toggleRound(roundId); };
+                            roundHeader.innerHTML = `
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <div style="font-weight:bold;color:#ef6c00;font-size:15px;">🔄 第${roundNumber}轮分析 - 进行中</div>
+                                    <span id="toggle-${roundId}" style="font-weight:bold;color:#ef6c00;">▼</span>
+                                </div>
+                            `;
+                            
+                            // 创建轮次内容容器
+                            var roundContent = document.createElement('div');
+                            roundContent.id = 'content-' + roundId;
+                            roundContent.style.cssText = 'padding:10px 15px;display:block;';
+                            
+                            roundContainer.appendChild(roundHeader);
+                            roundContainer.appendChild(roundContent);
+                            streamDiv.appendChild(roundContainer);
+                            
+                            // 设置当前轮次
+                            currentRoundContainer = roundContainer;
+                            currentRoundContent = roundContent;
+                        }
+                        
+                        // 轮次完成处理
+                        function handleRoundComplete(eventData) {
+                            if (currentRoundContainer) {
+                                var roundNumber = eventData.data.round || eventData.data.round_number || '?';
+                                var summary = eventData.data.summary || eventData.data.result || eventData.data.analysis || '轮次分析完成';
+                                
+                                // 更新轮次标题
+                                var header = currentRoundContainer.querySelector('div');
+                                if (header) {
+                                    header.innerHTML = `
+                                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                                            <div style="font-weight:bold;color:#388e3c;font-size:15px;">✅ 第${roundNumber}轮分析 - 已完成</div>
+                                            <span id="toggle-${currentRoundContainer.id}" style="font-weight:bold;color:#388e3c;">▲</span>
+                                        </div>
+                                    `;
+                                }
+                                
+                                // 添加详细的轮次结果
+                                if (summary && summary !== '轮次分析完成') {
+                                    var contentId = generateContentId();
+                                    var summaryDiv = document.createElement('div');
+                                    summaryDiv.style.cssText = 'margin-top:10px;padding:12px;background:rgba(76,175,80,0.1);border-radius:6px;border-left:4px solid #4caf50;';
+                                    
+                                    // 检查是否是详细的分析内容
+                                    var isDetailedAnalysis = summary.length > 200 || summary.includes('##') || summary.includes('ASSESSMENT');
+                                    
+                                    if (isDetailedAnalysis) {
+                                        // 详细分析内容，使用可展开格式
+                                        var preview = summary.length > 150 ? summary.substring(0, 150) + '...' : summary;
+                                        summaryDiv.innerHTML = `
+                                            <div onclick="toggleContent('${contentId}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                                <div style="font-weight:bold;color:#388e3c;">📋 轮次分析结果</div>
+                                                <span id="toggle-${contentId}" style="font-weight:bold;color:#388e3c;">▼</span>
+                                            </div>
+                                            <div id="preview-${contentId}" style="font-size:12px;line-height:1.4;color:#666;">
+                                                ${preview}
+                                            </div>
+                                            <div id="full-${contentId}" style="display:none;margin-top:10px;padding:15px;background:rgba(255,255,255,0.9);border-radius:6px;border:1px solid #c8e6c9;max-height:400px;overflow-y:auto;">
+                                                ${formatAgentAnalysis(summary)}
+                                            </div>
+                                        `;
+                                    } else {
+                                        // 简单总结
+                                        summaryDiv.innerHTML = `
+                                            <div style="font-weight:bold;color:#388e3c;margin-bottom:5px;">📋 轮次总结</div>
+                                            <div style="font-size:13px;line-height:1.4;color:#666;">${summary}</div>
+                                        `;
+                                    }
+                                    
+                                    currentRoundContent.appendChild(summaryDiv);
+                                }
+                                
+                                // 更新样式为完成状态
+                                currentRoundContainer.style.border = '2px solid #4caf50';
+                                currentRoundContainer.style.background = 'linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%)';
+                                
+                                // 清空当前轮次引用
+                                currentRoundContainer = null;
+                                currentRoundContent = null;
+                            }
+                        }
+                        
+                        // 轮次展开/折叠功能
+                        function toggleRound(roundId) {
+                            var contentDiv = document.getElementById('content-' + roundId);
+                            var toggleBtn = document.getElementById('toggle-' + roundId);
+                            
+                            if (contentDiv.style.display === 'none') {
+                                contentDiv.style.display = 'block';
+                                toggleBtn.textContent = '▼';
+                            } else {
+                                contentDiv.style.display = 'none';
+                                toggleBtn.textContent = '▶';
+                            }
+                            
+                            // 滚动调整
+                            setTimeout(function() {
+                                var streamDiv = document.getElementById('analysis-stream');
+                                if (streamDiv) {
+                                    streamDiv.scrollTop = streamDiv.scrollHeight;
+                                }
+                            }, 100);
+                        }
+                        
+                        // 处理最终决策显示
+                        function handleFinalDecision(eventData, messageDiv) {
+                            var data = eventData.data;
+                            var contentId = generateContentId();
+                            
+                            messageDiv.style.background = 'linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%)';
+                            messageDiv.style.border = '3px solid #4caf50';
+                            messageDiv.style.borderLeft = '6px solid #388e3c';
+                            messageDiv.style.boxShadow = '0 4px 12px rgba(76,175,80,0.15)';
+                            
+                            // 提取关键信息
+                            var recommendation = data.recommendation || '无推荐';
+                            var confidence = data.final_confidence || 0;
+                            var message = data.message || '最终交易决策已确定';
+                            var totalRounds = data.total_rounds || 0;
+                            var averageScore = data.average_score || 0;
+                            var allScores = data.all_scores || [];
+                            
+                            // 获取操作类型和颜色
+                            var actionColor = '#4caf50'; // 默认绿色
+                            var actionIcon = '📊';
+                            if (recommendation.includes('买入') || recommendation.includes('BUY')) {
+                                actionColor = '#f44336'; // 红色
+                                actionIcon = '📈';
+                            } else if (recommendation.includes('卖出') || recommendation.includes('SELL')) {
+                                actionColor = '#2196f3'; // 蓝色
+                                actionIcon = '📉';
+                            } else if (recommendation.includes('持有') || recommendation.includes('HOLD')) {
+                                actionColor = '#ff9800'; // 橙色
+                                actionIcon = '📊';
+                            }
+                            
+                            // 信心等级
+                            var confidenceLevel = '';
+                            var confidenceColor = '';
+                            if (confidence >= 8) {
+                                confidenceLevel = '高';
+                                confidenceColor = '#4caf50';
+                            } else if (confidence >= 6) {
+                                confidenceLevel = '中';
+                                confidenceColor = '#ff9800';
+                            } else {
+                                confidenceLevel = '低';
+                                confidenceColor = '#f44336';
+                            }
+                            
+                            messageDiv.innerHTML = `
+                                <div onclick="toggleAnalysisResult('${contentId}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                                    <div style="font-weight:bold;color:#388e3c;font-size:16px;">🎯 最终投资决策</div>
+                                    <span id="toggle-${contentId}" style="font-weight:bold;color:#388e3c;">▼</span>
+                                </div>
+                                
+                                <!-- 决策概览 -->
+                                <div id="preview-${contentId}" style="background:rgba(255,255,255,0.9);padding:15px;border-radius:8px;border:1px solid #c8e6c9;">
+                                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:15px;">
+                                        <div style="text-align:center;padding:10px;background:rgba(76,175,80,0.1);border-radius:6px;">
+                                            <div style="font-size:18px;color:${actionColor};font-weight:bold;">${actionIcon}</div>
+                                            <div style="font-size:13px;color:#666;margin:3px 0;">操作建议</div>
+                                            <div style="font-size:14px;font-weight:bold;color:${actionColor};">${recommendation}</div>
+                                        </div>
+                                        <div style="text-align:center;padding:10px;background:rgba(76,175,80,0.1);border-radius:6px;">
+                                            <div style="font-size:18px;color:${confidenceColor};font-weight:bold;">${confidence}</div>
+                                            <div style="font-size:13px;color:#666;margin:3px 0;">信心指数</div>
+                                            <div style="font-size:12px;color:${confidenceColor};">${confidenceLevel}信心 (${confidence}/10)</div>
+                                        </div>
+                                        <div style="text-align:center;padding:10px;background:rgba(76,175,80,0.1);border-radius:6px;">
+                                            <div style="font-size:18px;color:#388e3c;font-weight:bold;">${totalRounds}</div>
+                                            <div style="font-size:13px;color:#666;margin:3px 0;">分析轮数</div>
+                                            <div style="font-size:12px;color:#666;">平均分: ${averageScore}</div>
+                                        </div>
+                                    </div>
+                                    <div style="text-align:center;color:#666;font-size:13px;font-style:italic;">${message}</div>
+                                </div>
+                                
+                                <!-- 详细分析内容 -->
+                                <div id="full-${contentId}" style="display:none;margin-top:15px;background:rgba(255,255,255,0.95);padding:20px;border-radius:8px;border:1px solid #c8e6c9;max-height:500px;overflow-y:auto;">
+                                    ${formatFinalDecisionContent(data.final_decision || '暂无详细分析')}
+                                    
+                                    <!-- 技术数据 -->
+                                    <div style="margin-top:20px;padding:15px;background:rgba(76,175,80,0.05);border-radius:6px;border-left:4px solid #4caf50;">
+                                        <h4 style="margin:0 0 10px 0;color:#388e3c;">📊 分析数据</h4>
+                                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;">
+                                            <div><strong>总轮数:</strong> ${totalRounds}</div>
+                                            <div><strong>平均评分:</strong> ${averageScore}</div>
+                                            <div><strong>所有评分:</strong> [${allScores.join(', ')}]</div>
+                                            <div><strong>数据来源:</strong> ${data.source || 'unknown'}</div>
+                                        </div>
+                                        <div style="margin-top:8px;font-size:11px;color:#666;">
+                                            <strong>时间戳:</strong> ${data.timestamp ? new Date(data.timestamp * 1000).toLocaleString() : '未知'}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        // 格式化最终决策内容
+                        function formatFinalDecisionContent(content) {
+                            if (!content) return '<p style="color:#666;font-style:italic;">暂无详细分析内容</p>';
+                            
+                            // 将Markdown格式转换为HTML
+                            var formatted = content
+                                .replace(/## ([^\\n]+)/g, '<h3 style="color:#388e3c;margin:20px 0 10px 0;border-bottom:2px solid #c8e6c9;padding-bottom:5px;">$1</h3>')
+                                .replace(/### ([^\\n]+)/g, '<h4 style="color:#4caf50;margin:15px 0 8px 0;">$1</h4>')
+                                .replace(/\\*\\*([^\\*]+)\\*\\*/g, '<strong style="color:#2c3e50;">$1</strong>')
+                                .replace(/\\*([^\\*]+)\\*/g, '<em>$1</em>')
+                                .replace(/\\n\\n/g, '</p><p style="margin:10px 0;line-height:1.6;">')
+                                .replace(/\\n/g, '<br>')
+                                .replace(/^/, '<p style="margin:10px 0;line-height:1.6;">')
+                                .replace(/$/, '</p>');
+                            
+                            // 处理列表
+                            formatted = formatted.replace(/(\\d+\\.)\\s/g, '<div style="margin:5px 0 5px 20px;"><span style="color:#4caf50;font-weight:bold;">$1</span> ');
+                            formatted = formatted.replace(/([\\r\\n])(\\d+\\.)/g, '$1</div><div style="margin:5px 0 5px 20px;"><span style="color:#4caf50;font-weight:bold;">$2</span> ');
+                            
+                            return formatted;
+                        }
+                        
+                        // 格式化Agent分析内容
+                        function formatAgentAnalysis(content) {
+                            if (!content) return '<p style="color:#666;font-style:italic;">暂无分析内容</p>';
+                            
+                            // 将Markdown格式转换为HTML，针对Agent分析优化
+                            var formatted = content
+                                // 主要标题
+                                .replace(/## ([^\\n]+)/g, '<h3 style="color:#1976d2;margin:18px 0 12px 0;border-bottom:2px solid #bbdefb;padding-bottom:6px;font-size:16px;">📊 $1</h3>')
+                                // 次级标题  
+                                .replace(/### ([^\\n]+)/g, '<h4 style="color:#1565c0;margin:14px 0 8px 0;font-size:14px;">📋 $1</h4>')
+                                // 粗体文本
+                                .replace(/\\*\\*([^\\*]+)\\*\\*/g, '<strong style="color:#0d47a1;background:rgba(33,150,243,0.1);padding:1px 3px;border-radius:2px;">$1</strong>')
+                                // 斜体文本
+                                .replace(/\\*([^\\*]+)\\*/g, '<em style="color:#1976d2;">$1</em>')
+                                // 段落处理
+                                .replace(/\\n\\n/g, '</p><p style="margin:8px 0;line-height:1.5;color:#333;">')
+                                .replace(/\\n/g, '<br>')
+                                .replace(/^/, '<p style="margin:8px 0;line-height:1.5;color:#333;">')
+                                .replace(/$/, '</p>');
+                            
+                            // 处理编号列表
+                            formatted = formatted.replace(/(\\d+\\.)\\s([^<]+)/g, function(match, number, text) {
+                                return `<div style="margin:6px 0 6px 16px;padding:6px 10px;background:rgba(33,150,243,0.08);border-radius:4px;border-left:3px solid #2196f3;">
+                                    <span style="color:#1976d2;font-weight:bold;margin-right:8px;">${number}</span>
+                                    <span style="color:#333;">${text}</span>
+                                </div>`;
+                            });
+                            
+                            // 处理特殊关键词高亮
+                            formatted = formatted
+                                .replace(/(Score:|Action:|Conviction:|Sizing:|Recommendation:)/g, '<span style="background:#e3f2fd;color:#0d47a1;font-weight:bold;padding:2px 6px;border-radius:3px;margin-right:5px;">$1</span>')
+                                .replace(/(BUY|SELL|HOLD)/g, '<span style="background:#1976d2;color:white;font-weight:bold;padding:2px 8px;border-radius:4px;font-size:11px;">$1</span>')
+                                .replace(/(HIGH|MEDIUM|LOW)/g, '<span style="background:#bbdefb;color:#0d47a1;font-weight:bold;padding:1px 6px;border-radius:3px;font-size:11px;">$1</span>');
+                            
+                            // 处理信心等级显示
+                            formatted = formatted.replace(/Conviction Level: (\\w+)/g, function(match, level) {
+                                var color = level === 'High' ? '#4caf50' : level === 'Medium' ? '#ff9800' : '#f44336';
+                                return `<div style="margin:10px 0;padding:8px 12px;background:rgba(33,150,243,0.1);border-radius:6px;border-left:4px solid #2196f3;">
+                                    <strong style="color:#1976d2;">信心等级:</strong> 
+                                    <span style="color:${color};font-weight:bold;margin-left:8px;">${level}</span>
+                                </div>`;
+                            });
+                            
+                            return formatted;
+                        }
+                        
+                        // 将函数添加到全局作用域
+                        window.toggleDataDetails = toggleDataDetails;
+                        window.toggleAnalysisResult = toggleAnalysisResult;
+                        window.toggleRound = toggleRound;
+                        window.closeDataPanel = closeDataPanel;
+                        window.performSmartAnalysis = performSmartAnalysis;
+                        
+                        // 获取图表容器
+                        var gd = document.querySelector('.plotly-graph-div');
+                        
+                        // 监听plotly_click事件
+                        gd.on('plotly_click', function(data) {
+                            if (!data || !data.points || !data.points.length) return;
+                            
+                            var point = data.points[0];
+                            var pointData = point.customdata;
+                            var pointIndex = point.pointIndex;
+                            
+                            // 获取用户设置的天数
+                            var nDays = parseInt(document.getElementById('days-input').value) || 3;
+                            
+                            // 获取所有数据点
+                            var allData = point.data.customdata;
+                            var totalPoints = allData.length;
+                            
+                            // 计算前后n天的索引范围
+                            var startIndex = Math.max(0, pointIndex - nDays);
+                            var endIndex = Math.min(totalPoints - 1, pointIndex + nDays);
+                            
+                            // 隐藏控制面板
+                            var controlPanel = document.getElementById('control-panel');
+                            if (controlPanel) {
+                                controlPanel.style.display = 'none';
+                            }
+                            
+                            // 创建或更新数据面板 - 增加一倍宽度
+                            var dataPanel = document.getElementById('data-panel');
+                            if (!dataPanel) {
+                                dataPanel = document.createElement('div');
+                                dataPanel.id = 'data-panel';
+                                dataPanel.style.cssText = 'position:fixed;top:20px;right:20px;background:white;padding:15px;border:1px solid #ccc;border-radius:5px;box-shadow:2px 2px 10px rgba(0,0,0,0.1);z-index:1000;max-width:900px;max-height:80vh;overflow-y:auto;';
+                                document.body.appendChild(dataPanel);
+                            }
+                            
+                            // 更新数据面板内容
+                            var dataType = pointData[16] || '未知';
+                            var content = `
+                                <div style="position:sticky;top:0;background:white;border-bottom:1px solid #eee;padding-bottom:8px;margin-bottom:10px;">
+                                    <h3 style="margin:0;color:#2C3E50;">数据详情 (前后${nDays}天)</h3>
+                                    <p style="margin:5px 0;font-weight:bold;color:#E74C3C;">当前选中: ${dataType} - ${pointData[0]}</p>
+                                </div>
+                            `;
+                            
+                            // 准备智能分析需要的数据
+                            var analysisData = {
+                                selectedDate: pointData[0],
+                                selectedDataType: dataType,
+                                symbol: '${code}',  // 使用模板变量
+                                name: '${name}',    // 使用模板变量
+                                priceData: [],
+                                indicators: {}
+                            };
+                            
+                            // 收集前后n天的价格数据
+                            for (var i = startIndex; i <= endIndex; i++) {
+                                var dayData = allData[i];
+                                analysisData.priceData.push({
+                                    date: dayData[0],
+                                    open: parseFloat(dayData[1]),
+                                    high: parseFloat(dayData[2]),
+                                    low: parseFloat(dayData[3]),
+                                    close: parseFloat(dayData[4]),
+                                    volume: parseInt(dayData[5])
+                                });
+                                
+                                // 如果是当前选中的日期，记录技术指标
+                                if (i === pointIndex) {
+                                    analysisData.indicators = {
+                                        ma5: parseFloat(dayData[6]),
+                                        ma10: parseFloat(dayData[7]),
+                                        ma20: parseFloat(dayData[8]),
+                                        dif: parseFloat(dayData[9]),
+                                        dea: parseFloat(dayData[10]),
+                                        macd: parseFloat(dayData[11]),
+                                        kdj_k: parseFloat(dayData[12]),
+                                        kdj_d: parseFloat(dayData[13]),
+                                        kdj_j: parseFloat(dayData[14]),
+                                        rsi: parseFloat(dayData[15])
+                                    };
+                                }
+                            }
+                            
+                            // 存储到全局变量供智能分析使用
+                            window.currentAnalysisData = analysisData;
+                            
+                            // 显示前后n天的数据 - 添加折叠功能
+                            for (var i = startIndex; i <= endIndex; i++) {
+                                var dayData = allData[i];
+                                var isCurrentDay = (i === pointIndex);
+                                var dayClass = isCurrentDay ? 'current-day' : 'other-day';
+                                var dayStyle = isCurrentDay ? 
+                                    'background:#fff3cd;border:2px solid #856404;margin:8px 0;padding:10px;border-radius:5px;' : 
+                                    'background:#f8f9fa;border:1px solid #dee2e6;margin:5px 0;padding:8px;border-radius:3px;';
+                                
+                                var dayId = 'day-' + i;
+                                var isExpanded = isCurrentDay; // 默认只展开当前日期
+                                
+                                content += `
+                                    <div class="${dayClass}" style="${dayStyle}">
+                                        <div onclick="toggleDataDetails('${dayId}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+                                            <h5 style="margin:0;color:#2C3E50;font-weight:bold;">
+                                                ${dayData[0]} ${isCurrentDay ? '(选中日期)' : ''}
+                                            </h5>
+                                            <span id="toggle-${dayId}" style="font-weight:bold;color:#666;">${isExpanded ? '▼' : '▶'}</span>
+                                        </div>
+                                        <div id="details-${dayId}" style="display:${isExpanded ? 'block' : 'none'};margin-top:8px;">
+                                            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:8px;">
+                                                <span style="padding:4px;background:rgba(52,152,219,0.1);border-radius:3px;">开盘: ¥${parseFloat(dayData[1]).toFixed(2)}</span>
+                                                <span style="padding:4px;background:rgba(231,76,60,0.1);border-radius:3px;">最高: ¥${parseFloat(dayData[2]).toFixed(2)}</span>
+                                                <span style="padding:4px;background:rgba(46,204,113,0.1);border-radius:3px;">最低: ¥${parseFloat(dayData[3]).toFixed(2)}</span>
+                                                <span style="padding:4px;background:rgba(155,89,182,0.1);border-radius:3px;">收盘: ¥${parseFloat(dayData[4]).toFixed(2)}</span>
+                                            </div>
+                                            <div style="margin-bottom:8px;font-size:11px;color:#666;padding:4px;background:rgba(149,165,166,0.1);border-radius:3px;">
+                                                <span>成交量: ${parseInt(dayData[5]).toLocaleString()}</span>
+                                            </div>
+                                            
+                                            ${isCurrentDay || !isCurrentDay ? `
+                                                <div style="border-top:1px solid #ddd;padding-top:8px;">
+                                                    <h6 style="margin:0 0 8px 0;color:#2C3E50;">技术指标</h6>
+                                                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11px;">
+                                                        <div style="padding:4px;background:rgba(243,156,18,0.1);border-radius:3px;">
+                                                            <div>MA5: ¥${parseFloat(dayData[6]).toFixed(2)}</div>
+                                                            <div>MA10: ¥${parseFloat(dayData[7]).toFixed(2)}</div>
+                                                            <div>MA20: ¥${parseFloat(dayData[8]).toFixed(2)}</div>
+                                                        </div>
+                                                        <div style="padding:4px;background:rgba(52,152,219,0.1);border-radius:3px;">
+                                                            <div>MACD: ${parseFloat(dayData[11]).toFixed(2)}</div>
+                                                            <div>DIF: ${parseFloat(dayData[9]).toFixed(2)}</div>
+                                                            <div>DEA: ${parseFloat(dayData[10]).toFixed(2)}</div>
+                                                        </div>
+                                                        <div style="padding:4px;background:rgba(231,76,60,0.1);border-radius:3px;">
+                                                            <div>KDJ-K: ${parseFloat(dayData[12]).toFixed(2)}</div>
+                                                            <div>KDJ-D: ${parseFloat(dayData[13]).toFixed(2)}</div>
+                                                            <div>KDJ-J: ${parseFloat(dayData[14]).toFixed(2)}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div style="margin-top:6px;padding:4px;background:rgba(155,89,182,0.1);border-radius:3px;font-size:11px;">
+                                                        <span>RSI: ${parseFloat(dayData[15]).toFixed(2)}</span>
+                                                    </div>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                            
+                            // 添加智能分析结果显示区域
+                            content += `
+                                <div id="analysis-result" style="margin-top:15px;">
+                                    <!-- 智能分析结果将在这里显示 -->
+                                </div>
+                            `;
+                            
+                            // 添加控制按钮
+                            content += `
+                                <div style="text-align:right;margin-top:15px;position:sticky;bottom:0;background:white;padding-top:8px;border-top:1px solid #eee;">
+                                    <button id="analysis-btn" onclick="performSmartAnalysis()" 
+                                            style="padding:8px 15px;border:none;background:#3498DB;color:white;border-radius:3px;cursor:pointer;margin-right:10px;">
+                                        🤖 智能分析
+                                    </button>
+                                    <button onclick="closeDataPanel()" 
+                                            style="padding:8px 15px;border:none;background:#E74C3C;color:white;border-radius:3px;cursor:pointer;">
+                                        关闭
+                                    </button>
+                                </div>
+                            `;
+                            
+                            dataPanel.innerHTML = content;
+                            dataPanel.style.display = 'block';
+                        });
+                        
+                        // 全局函数绑定
+                        window.toggleAnalysisResult = function(contentId) {
+                            var fullDiv = document.getElementById('full-' + contentId);
+                            var toggleBtn = document.getElementById('toggle-' + contentId);
+                            
+                            if (fullDiv.style.display === 'none') {
+                                fullDiv.style.display = 'block';
+                                toggleBtn.textContent = '▲';
+                            } else {
+                                fullDiv.style.display = 'none';
+                                toggleBtn.textContent = '▼';
+                            }
+                            
+                            // 滚动调整
+                            setTimeout(function() {
+                                var streamDiv = document.getElementById('analysis-stream');
+                                if (streamDiv) {
+                                    streamDiv.scrollTo({
+                                        top: streamDiv.scrollHeight,
+                                        behavior: 'smooth'
+                                    });
+                                }
+                            }, 100);
+                        };
+                        
+                        // 通用内容展开/折叠函数
+                        window.toggleContent = function(contentId) {
+                            var fullDiv = document.getElementById('full-' + contentId);
+                            var previewDiv = document.getElementById('preview-' + contentId);
+                            var toggleBtn = document.getElementById('toggle-' + contentId);
+                            
+                            if (fullDiv && toggleBtn) {
+                                if (fullDiv.style.display === 'none') {
+                                    fullDiv.style.display = 'block';
+                                    if (previewDiv) previewDiv.style.display = 'none';
+                                    toggleBtn.textContent = '▲';
+                                } else {
+                                    fullDiv.style.display = 'none';
+                                    if (previewDiv) previewDiv.style.display = 'block';
+                                    toggleBtn.textContent = '▼';
+                                }
+                                
+                                // 滚动调整
+                                setTimeout(function() {
+                                    var streamDiv = document.getElementById('analysis-stream');
+                                    if (streamDiv) {
+                                        streamDiv.scrollTo({
+                                            top: streamDiv.scrollHeight,
+                                            behavior: 'smooth'
+                                        });
+                                    }
+                                }, 100);
+                            }
+                        };
+                        
+                    });
+                </script>
+                """
+                
+                # 添加CSS动画样式
+                custom_css = """
+                <style>
+                    @keyframes fadeIn {
+                        from { 
+                            opacity: 0; 
+                            transform: translateY(10px); 
+                        }
+                        to { 
+                            opacity: 1; 
+                            transform: translateY(0); 
+                        }
+                    }
+                    
+                    .message {
+                        animation: fadeIn 0.3s ease-in;
+                    }
+                    
+                    .status-message {
+                        animation: fadeIn 0.5s ease-in;
+                    }
+                    
+                    /* 滚动条样式 */
+                    #analysis-stream::-webkit-scrollbar {
+                        width: 8px;
+                    }
+                    
+                    #analysis-stream::-webkit-scrollbar-track {
+                        background: #f1f1f1;
+                        border-radius: 4px;
+                    }
+                    
+                    #analysis-stream::-webkit-scrollbar-thumb {
+                        background: #c1c1c1;
+                        border-radius: 4px;
+                    }
+                    
+                    #analysis-stream::-webkit-scrollbar-thumb:hover {
+                        background: #a8a8a8;
+                    }
+                    
+                    /* 分析结果展开区域的滚动条 */
+                    [id^="full-"]::-webkit-scrollbar {
+                        width: 6px;
+                    }
+                    
+                    [id^="full-"]::-webkit-scrollbar-track {
+                        background: #f1f1f1;
+                        border-radius: 3px;
+                    }
+                    
+                    [id^="full-"]::-webkit-scrollbar-thumb {
+                        background: #c1c1c1;
+                        border-radius: 3px;
+                    }
+                    
+                    [id^="full-"]::-webkit-scrollbar-thumb:hover {
+                        background: #a8a8a8;
+                    }
+                </style>
+                """
+                
+                # 在HTML内容中插入自定义CSS和JavaScript代码
+                html_content = html_content.replace('</head>', f'{custom_css}{custom_js}</head>')
+                
+                # 写入文件
+                f.write(html_content)
 
     except Exception as e:
         logger.error(f"图表生成失败: {str(e)}")
