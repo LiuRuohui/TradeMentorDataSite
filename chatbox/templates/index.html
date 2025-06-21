@@ -5,282 +5,286 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TradeMentor Assistant</title>
     <style>
+        html, body {
+            height: 100%;
+        }
         body {
             font-family: 'Arial', sans-serif;
-            background-image: url('/static/images/TradeMentor.png');
-            background-size: cover;
-            background-position: center center;
-            background-attachment: fixed;
+            background: #f4f6fa;
             margin: 0;
             padding: 0;
-            height: 100vh;
+            height: 100%;
         }
-
-        h1 {
-            font-size: 22px;
-            color: white;
-            text-align: center;
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #0078d4;
-            border-radius: 10px;
-            max-width: 80%;
-            margin: 20px auto;
-        }
-        
-        #chatbot-type {
-            font-size: 18px;
-            text-align: center;
-            color: #0078d4;
-            font-weight: bold;
-            margin: 10px auto;
-            padding: 10px;
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: 10px;
-            max-width: 70%;
-        }
-
+        /* 类型选择浮动左上角 */
         #chatbot-selection {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 20px auto;
-            padding: 20px;
-            width: 90%;
-            max-width: 600px;
-            background-color: rgba(255, 255, 255, 0.9);
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            z-index: 1001;
+            background: #fff;
             border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 18px 22px 12px 22px;
+            min-width: 220px;
+            max-width: 260px;
+            transition: box-shadow 0.2s;
         }
-
         #chatbot-selection h2 {
+            font-size: 16px;
             color: #0078d4;
-            margin-bottom: 20px;
+            margin: 0 0 10px 0;
+            padding: 0;
         }
-
         .chatbot-option {
             display: flex;
             align-items: center;
-            margin: 10px 0;
-            padding: 10px;
-            width: 100%;
-            border-radius: 10px;
+            margin: 6px 0;
+            padding: 4px 0;
+            border-radius: 6px;
             cursor: pointer;
-            transition: background-color 0.3s ease;
+            transition: background 0.2s;
         }
-
         .chatbot-option:hover {
-            background-color: #e6f2ff;
+            background: #f0f6ff;
         }
-
         .chatbot-option input {
-            margin-right: 15px;
+            margin-right: 8px;
         }
-
         .chatbot-option label {
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 15px;
+            font-weight: 500;
             cursor: pointer;
         }
-
         .chatbot-option .description {
-            font-size: 14px;
-            color: #666;
-            margin-left: 30px;
+            font-size: 12px;
+            color: #888;
+            margin-left: 16px;
         }
-
         #start-chat {
-            margin-top: 20px;
-            padding: 10px 30px;
-            background-color: #0078d4;
-            color: white;
+            margin-top: 10px;
+            padding: 7px 18px;
+            background: #0078d4;
+            color: #fff;
             border: none;
-            border-radius: 25px;
+            border-radius: 18px;
             cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s ease;
+            font-size: 15px;
         }
-
         #start-chat:hover {
-            background-color: #005fa3;
+            background: #005fa3;
         }
-
+        /* 聊天窗口客服风格 */
+        #chatbox-widget {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        #chatbox-header {
+            background: #0078d4;
+            color: #fff;
+            padding: 10px 14px;
+            font-size: 15px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #chatbot-type {
+            font-size: 13px;
+            color: #fff;
+            margin-left: 8px;
+            opacity: 0.85;
+        }
         #chat-area {
-            margin: 20px auto;
-            padding: 20px;
-            width: 90%;
-            max-width: 1000px;
-            background-color: #ADD8E6;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            flex: 1;
+            padding: 10px 8px 4px 8px;
+            background: #f7fafd;
             overflow-y: auto;
-            height: 700px;
-            display: none;
+            display: flex;
             flex-direction: column;
             gap: 10px;
         }
-
-        #chat-area p {
-            font-size: 18px;
-            margin: 10px 0;
+        .chat-bubble {
+            display: flex;
+            align-items: flex-end;
+            margin-bottom: 2px;
         }
-
         .user-message {
-            background-color: #98FB98;
-            padding: 8px 15px;
-            border-radius: 20px;
-            text-align: right;
-            align-self: flex-end;
-            width: auto;
+            background: #e6f7e6;
+            color: #222;
+            padding: 8px 14px;
+            border-radius: 18px 18px 4px 18px;
+            margin-left: auto;
             max-width: 80%;
-            display: inline-block;
-            margin-right: 10px;
+            font-size: 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
-
         .assistant-message {
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 8px 15px;
-            border-radius: 20px;
-            text-align: left;
-            align-self: flex-start;
-            width: auto;
+            background: #fff;
+            color: #222;
+            padding: 8px 14px;
+            border-radius: 18px 18px 18px 4px;
+            margin-right: auto;
             max-width: 80%;
-            display: inline-block;
-            margin-left: 10px;
+            font-size: 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
         }
-
-        #user-input {
-            font-size: 18px;
-            padding: 15px;
-            width: 100%;
-            max-width: 1000px;
-            border-radius: 25px;
-            border: 1px solid #ccc;
-            height: 50px;
-            margin-right: 10px;
-            box-sizing: border-box;
-            outline: none;
-            display: none;
-        }
-
-        #user-input:focus {
-            border-color: #0078d4;
-        }
-
-        #emoji-picker {
-            display: none;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            margin-left: 10px;
-            max-width: 400px;
-            justify-content: space-between;
-        }
-
-        .emoji {
-            cursor: pointer;
-            font-size: 24px;
-            margin: 2px;
-            flex: 1 0 25%;
-            text-align: center;
-        }
-
-        button {
+        .avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: 16px;
-            padding: 10px 20px;
-            background-color: #0078d4;
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
+            margin: 0 4px;
         }
-
-        button:hover {
-            background-color: #005fa3;
+        .user-bubble .avatar {
+            background: #b2e6b2;
+            color: #0078d4;
         }
-
+        .assistant-bubble .avatar {
+            background: #e6eaff;
+            color: #0078d4;
+        }
         #chat-form {
             display: flex;
             align-items: center;
-            width: 100%;
-            max-width: 1000px;
-            margin: 0 auto;
-            display: none;
+            padding: 6px 8px;
+            background: #f7fafd;
+            border-top: 1px solid #eaeaea;
         }
-
-        #duration {
-            font-size: 18px;
-            text-align: center;
-            margin: 10px auto;
-            color: #f0ebeb;
-            display: none;
+        #user-input {
+            font-size: 14px;
+            padding: 7px 10px;
+            border-radius: 14px;
+            border: 1px solid #ccc;
+            flex: 1;
+            margin-right: 6px;
+            outline: none;
         }
-
-        #end-message {
-            display: none;
-            font-size: 18px;
-            text-align: center;
-            margin-top: 20px;
-            color: red;
-            font-weight: bold;
+        #user-input:focus {
+            border-color: #0078d4;
         }
-
+        #emoji-picker {
+            display: none;
+            flex-wrap: wrap;
+            margin-left: 6px;
+            max-width: 180px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 4px 8px;
+            position: absolute;
+            bottom: 60px;
+            right: 60px;
+            z-index: 1002;
+        }
+        .emoji {
+            cursor: pointer;
+            font-size: 22px;
+            margin: 2px 4px;
+        }
+        #send-btn {
+            font-size: 14px;
+            padding: 6px 14px;
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #send-btn:hover {
+            background: #005fa3;
+        }
         #end-service {
             display: none;
-            margin: 20px auto;
-            font-size: 16px;
-            padding: 10px 20px;
-            background-color: #0078d4;
+            margin: 8px auto 0 auto;
+            font-size: 14px;
+            padding: 6px 14px;
+            background: #0078d4;
             color: white;
             border: none;
-            border-radius: 25px;
+            border-radius: 14px;
             cursor: pointer;
-            transition: background-color 0.3s ease;
             width: auto;
+        }
+        #end-message {
+            display: none;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 12px;
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        @media (max-width: 600px) {
+            #chatbox-widget {
+                right: 0;
+                left: 0;
+                bottom: 0;
+                width: 100vw;
+                height: 100vh;
+                border-radius: 0;
+            }
+            #chatbot-selection {
+                left: 8px;
+                top: 8px;
+                min-width: 160px;
+                max-width: 90vw;
+                padding: 10px 8px 8px 8px;
+            }
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/2.1.3/marked.min.js"></script>
 </head>
 <body>
-    <h1>Welcome to TradeMentor!</h1>
-
     <div id="chatbot-selection">
-        <h2>Please select your preferred chatbot style:</h2>
-        
+        <h2>Select Chatbot Type</h2>
         <div class="chatbot-option">
             <input type="radio" id="humorous" name="chatbot-type" value="humorous">
             <label for="humorous">Humorous</label>
-            <div class="description">This chatbot will respond with jokes and lighthearted comments</div>
+            <div class="description">Witty and light-hearted conversation</div>
         </div>
-        
         <div class="chatbot-option">
             <input type="radio" id="professional" name="chatbot-type" value="professional">
             <label for="professional">Professional</label>
-            <div class="description">This chatbot will respond in a formal and business-appropriate manner</div>
+            <div class="description">Formal, professional, business style</div>
         </div>
-        
         <div class="chatbot-option">
             <input type="radio" id="educational" name="chatbot-type" value="educational">
             <label for="educational">Educational</label>
-            <div class="description">This chatbot will focus on teaching and explaining concepts</div>
+            <div class="description">Focus on explanation and popular science</div>
         </div>
-        
         <div class="chatbot-option">
             <input type="radio" id="supportive" name="chatbot-type" value="supportive">
             <label for="supportive">Supportive</label>
-            <div class="description">This chatbot will provide empathetic and encouraging responses</div>
+            <div class="description">Empathetic, encouraging, warm companionship</div>
         </div>
-        
-        <button id="start-chat">Start Chatting</button>
+        <button id="start-chat">Start Chat</button>
     </div>
 
-    <div id="chatbot-type"></div>
-
-    <p id="duration">Duration of the interaction: 0 seconds</p>
-
-    <form id="chat-form">
-        <input type="text" id="user-input" placeholder="Enter your message..." required>
-        <button type="submit">Send</button>
+    <div id="chatbox-widget" style="display:none;">
+        <div id="chatbox-header">
+            <span>TradeMentor Assistant</span>
+            <span id="chatbot-type"></span>
+            <span id="chat-timer" style="margin-left:auto;font-size:13px;color:#fff;opacity:0.85;"></span>
+        </div>
+        <div id="chat-area"></div>
+        <form id="chat-form" autocomplete="off">
+            <input type="text" id="user-input" placeholder="Please enter your question..." required autocomplete="off">
+            <button type="button" id="emoji-btn" style="font-size:20px;margin-right:4px;">😀</button>
+            <button type="submit" id="send-btn">Send</button>
+        </form>
         <div id="emoji-picker">
             <span class="emoji" onclick="addEmoji('😀')">😀</span>
             <span class="emoji" onclick="addEmoji('😂')">😂</span>
@@ -292,64 +296,56 @@
             <span class="emoji" onclick="addEmoji('😎')">😎</span>
             <span class="emoji" onclick="addEmoji('😲')">😲</span>
         </div>
-    </form>
-
-    <div id="chat-area"></div>
-    <button id="end-service">End Service</button>
-    <p id="end-message">The service ends now. Please click the link <a href="https://hku.au1.qualtrics.com/jfe/form/SV_6EG8xne6k4Z0urA" target="_blank">https://hku.au1.qualtrics.com/jfe/form/SV_6EG8xne6k4Z0urA</a> to finish the evaluation based on your using experience.</p>
-
+        <button id="end-service">End Service</button>
+        <p id="end-message">Service has ended. To provide feedback, please click <a href="https://hku.au1.qualtrics.com/jfe/form/SV_6EG8xne6k4Z0urA" target="_blank">here</a>.</p>
+    </div>
     <script>
         let chatbotType = '';
-        const startTime = new Date();
-
+        let startTime;
+        let timerInterval;
+        let elapsedSeconds = 0;
+        function formatTime(sec) {
+            const h = String(Math.floor(sec / 3600)).padStart(2, '0');
+            const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+            const s = String(sec % 60).padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+        function startTimer() {
+            elapsedSeconds = 0;
+            document.getElementById("chat-timer").textContent = "00:00:00";
+            timerInterval = setInterval(() => {
+                elapsedSeconds++;
+                document.getElementById("chat-timer").textContent = formatTime(elapsedSeconds);
+            }, 1000);
+        }
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+        // 类型选择逻辑
         document.getElementById("start-chat").addEventListener("click", function() {
             const selectedOption = document.querySelector('input[name="chatbot-type"]:checked');
-            
             if (!selectedOption) {
-                alert("Please select a chatbot style before starting.");
+                alert("Please select a chatbot type");
                 return;
             }
-            
             chatbotType = selectedOption.value;
-            document.getElementById("chatbot-type").textContent = `You're chatting with a ${chatbotType.charAt(0).toUpperCase() + chatbotType.slice(1)} chatbot`;
-            
-            // Hide selection and show chat interface
+            document.getElementById("chatbot-type").textContent = `(${selectedOption.nextElementSibling.textContent})`;
             document.getElementById("chatbot-selection").style.display = "none";
-            document.getElementById("chat-area").style.display = "flex";
-            document.getElementById("user-input").style.display = "block";
-            document.getElementById("chat-form").style.display = "flex";
-            document.getElementById("emoji-picker").style.display = "flex";
-            document.getElementById("duration").style.display = "block";
-            
-            // Focus on input field
+            document.getElementById("chatbox-widget").style.display = "flex";
             document.getElementById("user-input").focus();
-            
-            // Start duration timer
-            setInterval(updateDuration, 1000);
+            startTime = new Date();
+            startTimer();
         });
-
-        function updateDuration() {
-            const now = new Date();
-            const durationInSeconds = Math.floor((now - startTime) / 1000);
-            document.getElementById("duration").textContent = `Duration of the interaction: ${durationInSeconds} seconds`;
-
-            if (durationInSeconds >= 180) {
-                document.getElementById("end-service").style.display = "block";
-            }
-        }
-
+        // 聊天表单提交
         document.getElementById("chat-form").addEventListener("submit", async function(event) {
             event.preventDefault();
             const userInput = document.getElementById("user-input").value;
-
-            const chatArea = document.getElementById("chat-area");
-            chatArea.innerHTML += `<p class="user-message">${userInput}</p>`;
-            chatArea.scrollTop = chatArea.scrollHeight;
-
+            if (!userInput.trim()) return;
+            addMessage(userInput, 'user');
+            document.getElementById("user-input").value = "";
             const now = new Date();
             const durationInSeconds = Math.floor((now - startTime) / 1000);
-
-            // Send the user input, chatbot type, and interaction duration
+            // 发送请求
             const response = await fetch("/chat", {
                 method: "POST",
                 body: new URLSearchParams({
@@ -359,31 +355,39 @@
                 }),
                 headers: { "Content-Type": "application/x-www-form-urlencoded" }
             });
-
             const data = await response.json();
             const assistantReply = data.assistant_reply || data.error;
-
-            // 使用marked.js解析Markdown并添加换行
-            const formattedReply = marked(assistantReply.replace(/\n/g, '<br>'));
-
-            chatArea.innerHTML += `<div class="assistant-message">${formattedReply}</div>`;
-            chatArea.scrollTop = chatArea.scrollHeight;
-
-            document.getElementById("user-input").value = "";
-
-            updateDuration();
+            addMessage(assistantReply, 'assistant');
         });
-
+        // 添加消息气泡
+        function addMessage(text, sender) {
+            const chatArea = document.getElementById("chat-area");
+            const bubble = document.createElement("div");
+            bubble.className = `chat-bubble ${sender}-bubble`;
+            const avatar = document.createElement("div");
+            avatar.className = "avatar";
+            avatar.textContent = sender === 'user' ? '🧑' : '🤖';
+            const msg = document.createElement("div");
+            msg.className = sender === 'user' ? 'user-message' : 'assistant-message';
+            msg.innerHTML = sender === 'assistant' ? marked(text.replace(/\n/g, '<br>')) : text;
+            if (sender === 'user') {
+                bubble.appendChild(msg);
+                bubble.appendChild(avatar);
+            } else {
+                bubble.appendChild(avatar);
+                bubble.appendChild(msg);
+            }
+            chatArea.appendChild(bubble);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+        // 结束服务
         document.getElementById("end-service").addEventListener("click", async () => {
             const now = new Date();
             const totalDuration = Math.floor((now - startTime) / 1000);
-
-            // Hide the chat interface and display the end message
             document.getElementById("chat-form").style.display = "none";
             document.getElementById("end-service").style.display = "none";
             document.getElementById("end-message").style.display = "block";
-
-            // Send total duration
+            stopTimer();
             await fetch("/end-service", {
                 method: "POST",
                 body: new URLSearchParams({
@@ -392,15 +396,20 @@
                 }),
                 headers: { "Content-Type": "application/x-www-form-urlencoded" }
             });
-
-            alert(`The service ended. Total duration: ${totalDuration} seconds.`);
+            alert(`Service ended. Total duration: ${totalDuration} seconds.`);
         });
-
+        // emoji
         function addEmoji(emoji) {
             const userInput = document.getElementById("user-input");
             userInput.value += emoji;
             userInput.focus();
         }
+        // emoji按钮切换emoji-picker显示
+        document.getElementById("emoji-btn").addEventListener("click", function(e) {
+            e.preventDefault();
+            const picker = document.getElementById("emoji-picker");
+            picker.style.display = picker.style.display === "flex" ? "none" : "flex";
+        });
     </script>
 </body>
 </html>

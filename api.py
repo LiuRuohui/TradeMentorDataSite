@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional, Dict
@@ -14,6 +14,7 @@ from fastapi import Query
 from fastapi.encoders import jsonable_encoder   # ❶ 新增
 import numpy as np
 import akshare as ak
+from database import db  # 导入数据库模块
 _STOCK_CACHE = "all_stocks.pkl"
 
 
@@ -35,8 +36,13 @@ app = FastAPI(
 
 # 创建静态文件目录
 STATIC_DIR = "static"
+FORUM_DIR = "forum"
 os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(FORUM_DIR, exist_ok=True)
+
+# 挂载静态文件目录
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/forum", StaticFiles(directory=FORUM_DIR), name="forum")
 
 # 数据模型
 class StockAnalysisRequest(BaseModel):
@@ -70,7 +76,7 @@ def _make_output_dir() -> str:
     return path
 
 _FIELD_MAP = {
-    # A 股、港股接口用中文“代码”“名称”
+    # A 股、港股接口用中文"代码""名称"
     "代码": "code",
     "名称": "name",
     # 美股接口返回英文
@@ -106,6 +112,10 @@ def _load_stocks(force_refresh: bool) -> pd.DataFrame:
 
 @app.get("/")
 async def root():
+    return RedirectResponse(url="/static/index.html")
+
+@app.get("/api/status")
+async def api_status():
     return {"message": "股票分析系统 API 服务正在运行"}
 
 @app.post("/analyze/single", summary="分析单只股票并生成图表")
@@ -284,6 +294,66 @@ async def get_stock_list(req: StockListRequest):
         "count": len(df),
         "data": jsonable_encoder(df.to_dict("records"))
     }
+
+# 论坛相关的数据模型
+class CreatePostRequest(BaseModel):
+    title: str
+    content: str
+    author: str
+    category: str
+    tags: List[str]
+
+# 论坛相关的API端点
+@app.get("/api/forum/posts")
+async def get_forum_posts():
+    """获取所有论坛帖子"""
+    try:
+        posts = db.get_all_posts()
+        return {"posts": posts}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取帖子失败: {str(e)}")
+
+@app.get("/api/forum/categories")
+async def get_forum_categories():
+    """获取所有论坛分类"""
+    try:
+        categories = db.get_categories()
+        return {"categories": categories}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取分类失败: {str(e)}")
+
+@app.get("/api/forum/tags")
+async def get_forum_tags():
+    """获取所有论坛标签"""
+    try:
+        tags = db.get_tags()
+        return {"tags": tags}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取标签失败: {str(e)}")
+
+@app.get("/api/forum/stats")
+async def get_forum_stats():
+    """获取论坛统计信息"""
+    try:
+        stats = db.get_forum_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
+
+@app.post("/api/forum/posts")
+async def create_forum_post(request: CreatePostRequest):
+    """创建新帖子"""
+    try:
+        post_id = db.create_post(
+            title=request.title,
+            content=request.content,
+            author=request.author,
+            category=request.category,
+            tags=request.tags
+        )
+        return {"message": "帖子创建成功", "post_id": post_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建帖子失败: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

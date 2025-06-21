@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Forum</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #409eff;
+            --bg-light: #f5f6fa;
+            --text-dark: #2c3e50;
+            --text-light: #6b7280;
+            --border-color: #e5e7eb;
+            --hover-bg: #f8f9fa;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            background-color: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .title {
+            margin: 0;
+            font-size: 2rem;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .title svg {
+            width: 2rem;
+            height: 2rem;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1a252f;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #3b8ee6;
+            transform: translateY(-1px);
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+        
+        .main-content {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .post-list {
+            list-style: none;
+        }
+        
+        .post-item {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            transition: background-color 0.2s;
+        }
+        
+        .post-item:last-child {
+            border-bottom: none;
+        }
+        
+        .post-item:hover {
+            background-color: var(--hover-bg);
+        }
+        
+        .post-title {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        
+        .post-title:hover {
+            color: var(--secondary-color);
+        }
+        
+        .post-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+        
+        .post-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .post-tags {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .tag {
+            background-color: #e5e7eb;
+            color: var(--text-dark);
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+        }
+        
+        .tag:hover {
+            background-color: #d1d5db;
+        }
+        
+        .stats-card {
+            background-color: var(--bg-light);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-light);
+        }
+        
+        .category-list {
+            list-style: none;
+        }
+        
+        .category-item {
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .category-item:hover {
+            background-color: var(--hover-bg);
+        }
+        
+        .category-count {
+            background-color: #e5e7eb;
+            color: var(--text-dark);
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+            
+            .nav-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 class="title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Stock Forum
+            </h1>
+            <div class="nav-buttons">
+                <a href="/forum/post.html" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14M5 12h14"></path>
+                    </svg>
+                    New Post
+                </a>
+                <a href="/static/index.html" class="btn btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7"></path>
+                    </svg>
+                    Back to Analysis
+                </a>
+            </div>
+        </header>
+
+        <div class="content">
+            <main class="main-content">
+                <h2 class="section-title">Hot Discussions</h2>
+                <ul class="post-list">
+                    <li class="post-item">
+                        <a href="#" class="post-title">How to Analyze Technical Indicators?</a>
+                        <div class="post-meta">
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                Trading Expert
+                            </span>
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                23 Replies
+                            </span>
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                156 Views
+                            </span>
+                        </div>
+                        <div class="post-tags">
+                            <span class="tag">Technical Analysis</span>
+                            <span class="tag">MACD</span>
+                            <span class="tag">KDJ</span>
+                        </div>
+                    </li>
+                    <li class="post-item">
+                        <a href="#" class="post-title">Beginner's Guide: Fundamental Analysis Basics</a>
+                        <div class="post-meta">
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                Stock Newbie
+                            </span>
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                15 Replies
+                            </span>
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                98 Views
+                            </span>
+                        </div>
+                        <div class="post-tags">
+                            <span class="tag">Fundamentals</span>
+                            <span class="tag">Financial Analysis</span>
+                            <span class="tag">Beginner</span>
+                        </div>
+                    </li>
+                    <li class="post-item">
+                        <a href="#" class="post-title">Sharing My Stock Selection Strategy</a>
+                        <div class="post-meta">
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                Senior Investor
+                            </span>
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                31 Replies
+                            </span>
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                245 Views
+                            </span>
+                        </div>
+                        <div class="post-tags">
+                            <span class="tag">Stock Selection</span>
+                            <span class="tag">Investment Experience</span>
+                            <span class="tag">Strategy</span>
+                        </div>
+                    </li>
+                </ul>
+            </main>
+
+            <aside class="sidebar">
+                <div class="search-box">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" class="search-input" placeholder="Search posts...">
+                </div>
+
+                <div class="stats-card">
+                    <h3 class="section-title">Forum Statistics</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value">1,234</div>
+                            <div class="stat-label">Total Posts</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">567</div>
+                            <div class="stat-label">Members</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">89</div>
+                            <div class="stat-label">Posts Today</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">45</div>
+                            <div class="stat-label">Online Users</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="section-title">Categories</h3>
+                <ul class="category-list">
+                    <li class="category-item">
+                        <span>Technical Analysis</span>
+                        <span class="category-count">328</span>
+                    </li>
+                    <li class="category-item">
+                        <span>Fundamental Analysis</span>
+                        <span class="category-count">256</span>
+                    </li>
+                    <li class="category-item">
+                        <span>Investment Strategy</span>
+                        <span class="category-count">189</span>
+                    </li>
+                    <li class="category-item">
+                        <span>Market News</span>
+                        <span class="category-count">145</span>
+                    </li>
+                    <li class="category-item">
+                        <span>Beginner's Guide</span>
+                        <span class="category-count">98</span>
+                    </li>
+                    <li class="category-item">
+                        <span>Experience Sharing</span>
+                        <span class="category-count">76</span>
+                    </li>
+                </ul>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let allPosts = [];
+        let allCategories = [];
+        let allTags = [];
+        let forumStats = {};
+
+        // 页面加载时获取数据
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadForumData();
+            updateForumDisplay();
+        });
+
+        // 加载论坛数据
+        async function loadForumData() {
+            try {
+                // 并行获取所有数据
+                const [postsResponse, categoriesResponse, tagsResponse, statsResponse] = await Promise.all([
+                    fetch('/api/forum/posts'),
+                    fetch('/api/forum/categories'),
+                    fetch('/api/forum/tags'),
+                    fetch('/api/forum/stats')
+                ]);
+
+                if (postsResponse.ok) {
+                    const postsData = await postsResponse.json();
+                    allPosts = postsData.posts || [];
+                }
+
+                if (categoriesResponse.ok) {
+                    const categoriesData = await categoriesResponse.json();
+                    allCategories = categoriesData.categories || [];
+                }
+
+                if (tagsResponse.ok) {
+                    const tagsData = await tagsResponse.json();
+                    allTags = tagsData.tags || [];
+                }
+
+                if (statsResponse.ok) {
+                    forumStats = await statsResponse.json();
+                }
+
+            } catch (error) {
+                console.error('加载论坛数据失败:', error);
+            }
+        }
+
+        // 更新论坛显示
+        function updateForumDisplay() {
+            updatePostsList();
+            updateCategoriesList();
+            updateStatsDisplay();
+        }
+
+        // 更新帖子列表
+        function updatePostsList() {
+            const postList = document.querySelector('.post-list');
+            if (!postList || !allPosts.length) return;
+
+            postList.innerHTML = '';
+            
+            allPosts.forEach(post => {
+                const postItem = document.createElement('li');
+                postItem.className = 'post-item';
+                
+                const timeAgo = getTimeAgo(post.created_at);
+                const replyCount = Math.floor(Math.random() * 50) + 5; // 模拟回复数
+                
+                postItem.innerHTML = `
+                    <a href="#" class="post-title">${post.title}</a>
+                    <div class="post-meta">
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            ${post.author}
+                        </span>
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            ${replyCount} Replies
+                        </span>
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            ${post.views} Views
+                        </span>
+                        <span class="post-time">${timeAgo}</span>
+                    </div>
+                    <div class="post-tags">
+                        ${post.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                    </div>
+                `;
+                
+                postList.appendChild(postItem);
+            });
+        }
+
+        // 更新分类列表
+        function updateCategoriesList() {
+            const categoryList = document.querySelector('.category-list');
+            if (!categoryList || !allCategories.length) return;
+
+            categoryList.innerHTML = '';
+            
+            allCategories.forEach(category => {
+                const categoryItem = document.createElement('li');
+                categoryItem.className = 'category-item';
+                categoryItem.innerHTML = `
+                    <span>${category.name}</span>
+                    <span class="category-count">${category.post_count}</span>
+                `;
+                
+                categoryItem.addEventListener('click', function() {
+                    filterPostsByCategory(category.name);
+                });
+                
+                categoryList.appendChild(categoryItem);
+            });
+        }
+
+        // 更新统计信息
+        function updateStatsDisplay() {
+            const statsGrid = document.querySelector('.stats-grid');
+            if (!statsGrid) return;
+
+            statsGrid.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-value">${forumStats.total_posts || 0}</div>
+                    <div class="stat-label">Total Posts</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${forumStats.total_users || 0}</div>
+                    <div class="stat-label">Members</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${forumStats.posts_today || 0}</div>
+                    <div class="stat-label">Posts Today</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${forumStats.total_categories || 0}</div>
+                    <div class="stat-label">Categories</div>
+                </div>
+            `;
+        }
+
+        // 按分类筛选帖子
+        function filterPostsByCategory(categoryName) {
+            const filteredPosts = allPosts.filter(post => post.category === categoryName);
+            displayFilteredPosts(filteredPosts, `Category: ${categoryName}`);
+        }
+
+        // 显示筛选后的帖子
+        function displayFilteredPosts(posts, filterName) {
+            const postList = document.querySelector('.post-list');
+            if (!postList) return;
+
+            // 添加筛选标题
+            const filterTitle = document.createElement('h3');
+            filterTitle.textContent = filterName;
+            filterTitle.style.marginBottom = '1rem';
+            filterTitle.style.color = 'var(--secondary-color)';
+            
+            postList.parentNode.insertBefore(filterTitle, postList);
+
+            // 更新帖子列表
+            postList.innerHTML = '';
+            
+            if (posts.length === 0) {
+                postList.innerHTML = '<li class="post-item">No posts found</li>';
+                return;
+            }
+
+            posts.forEach(post => {
+                const postItem = document.createElement('li');
+                postItem.className = 'post-item';
+                
+                const timeAgo = getTimeAgo(post.created_at);
+                const replyCount = Math.floor(Math.random() * 50) + 5;
+                
+                postItem.innerHTML = `
+                    <a href="#" class="post-title">${post.title}</a>
+                    <div class="post-meta">
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            ${post.author}
+                        </span>
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            ${replyCount} Replies
+                        </span>
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            ${post.views} Views
+                        </span>
+                        <span class="post-time">${timeAgo}</span>
+                    </div>
+                    <div class="post-tags">
+                        ${post.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                    </div>
+                `;
+                
+                postList.appendChild(postItem);
+            });
+        }
+
+        // 获取时间差
+        function getTimeAgo(timestamp) {
+            const now = new Date();
+            const postTime = new Date(timestamp);
+            const diffMs = now - postTime;
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 0) {
+                return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+            } else if (diffHours > 0) {
+                return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            } else {
+                return 'Just now';
+            }
+        }
+
+        // 搜索功能
+        const searchInput = document.querySelector('.search-input');
+        searchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            
+            if (!searchTerm) {
+                updatePostsList();
+                return;
+            }
+            
+            const filteredPosts = allPosts.filter(post => {
+                const title = post.title.toLowerCase();
+                const tags = post.tags.map(tag => tag.toLowerCase());
+                return title.includes(searchTerm) || tags.some(tag => tag.includes(searchTerm));
+            });
+            
+            displayFilteredPosts(filteredPosts, `Search: ${searchTerm}`);
+        });
+
+        // 分类导航点击事件
+        const categoryItems = document.querySelectorAll('.category-item');
+        categoryItems.forEach(item => {
+            item.addEventListener('click', function() {
+                const category = this.querySelector('span:first-child').textContent;
+                filterPostsByCategory(category);
+            });
+        });
+    </script>
+</body>
+</html> 
