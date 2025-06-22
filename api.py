@@ -356,4 +356,4 @@ async def create_forum_post(request: CreatePostRequest):
         raise HTTPException(status_code=500, detail=f"创建帖子失败: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)
