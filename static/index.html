@@ -7,166 +7,410 @@
     <style>
       /* =============== Layout =============== */
       :root {
-        --sidebar-width: 210px;
-        --bg-light: #f5f6fa;
-        --primary: #409eff;
+        --sidebar-width: 240px;
+        --bg-light: #f8fafc;
+        --primary: #3b82f6;
+        --primary-dark: #2563eb;
+        --primary-light: #dbeafe;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --text-primary: #1f2937;
+        --text-secondary: #6b7280;
+        --border-color: #e5e7eb;
+        --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        --card-shadow-hover: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       }
+      
       * {
         box-sizing: border-box;
       }
+      
       body {
         margin: 0;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-        background: var(--bg-light);
-        display: flex;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
-        color: #333;
+        color: var(--text-primary);
+        line-height: 1.6;
       }
+      
       /* ---------- Sidebar ---------- */
       .sidebar {
         width: var(--sidebar-width);
-        background: #fff;
-        border-right: 1px solid #e4e6eb;
-        padding: 1rem 0.5rem;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-right: 1px solid var(--border-color);
+        padding: 2rem 1rem;
+        position: fixed;
+        height: 100vh;
+        overflow-y: auto;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        z-index: 100;
       }
+      
       .sidebar h2 {
         text-align: center;
-        font-size: 1.25rem;
-        margin: 0 0 1rem;
+        font-size: 1.5rem;
+        margin: 0 0 2rem;
+        color: var(--primary);
+        font-weight: 700;
+        position: relative;
       }
+      
+      .sidebar h2::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary), var(--primary-light));
+        border-radius: 2px;
+      }
+      
       .menu {
         list-style: none;
         padding: 0;
         margin: 0;
       }
+      
       .menu li {
-        margin: 0.5rem 0;
+        margin: 0.75rem 0;
       }
+      
       .menu button {
         width: 100%;
         background: none;
         border: none;
-        padding: 0.6rem 0.8rem;
-        border-radius: 6px;
+        padding: 1rem 1.2rem;
+        border-radius: 12px;
         text-align: left;
         cursor: pointer;
-        font-size: 0.95rem;
-        transition: background 0.2s;
+        font-size: 1rem;
+        font-weight: 500;
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+        color: var(--text-secondary);
       }
+      
+      .menu button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+        transition: left 0.5s;
+      }
+      
+      .menu button:hover::before {
+        left: 100%;
+      }
+      
       .menu button.active,
       .menu button:hover {
-        background: var(--primary);
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
         color: #fff;
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
       }
+      
       /* ---------- Main ---------- */
       .main {
-        flex: 1;
-        padding: 1.5rem;
-        overflow-y: auto;
+        margin-left: var(--sidebar-width);
+        padding: 2rem;
+        min-height: 100vh;
+        background: var(--bg-light);
+        display: grid; /* 使用Grid布局 */
+        grid-template-columns: 2fr 1fr; /* 左侧2/3，右侧1/3 */
+        gap: 2rem; /* 间距 */
+        align-items: start; /* 顶部对齐 */
       }
+      
+      .main-content {
+        grid-column: 1 / 2; /* 占据第一列 */
+      }
+
+      .sidebar-right {
+        grid-column: 2 / 3; /* 占据第二列 */
+        position: sticky; /* 固定位置 */
+        top: 2rem;
+      }
+      
       .main h1 {
         text-align: center;
-        margin-top: 0;
+        margin: 0 0 2rem;
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
       }
+      
       /* ---------- Card ---------- */
       .card {
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        box-shadow: var(--card-shadow);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: var(--transition);
       }
+      
+      .card:hover {
+        box-shadow: var(--card-shadow-hover);
+        transform: translateY(-2px);
+      }
+      
+      .card h3 {
+        margin: 0 0 1.5rem;
+        color: var(--primary);
+        font-size: 1.5rem;
+        font-weight: 600;
+      }
+      
       label {
         font-weight: 600;
         display: block;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+        font-size: 0.95rem;
       }
+      
       input[type="text"],
       input[type="number"],
       textarea,
       select {
         width: 100%;
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #dcdfe6;
-        border-radius: 4px;
-        margin-bottom: 1rem;
+        padding: 0.75rem 1rem;
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        font-size: 1rem;
+        transition: var(--transition);
+        background: rgba(255, 255, 255, 0.8);
       }
+      
+      input[type="text"]:focus,
+      input[type="number"]:focus,
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        background: #fff;
+      }
+      
       textarea {
         resize: vertical;
-        min-height: 70px;
+        min-height: 100px;
       }
+      
       button[type="submit"] {
-        background: var(--primary);
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
         color: #fff;
         border: none;
-        padding: 0.6rem 1.2rem;
-        border-radius: 4px;
+        padding: 0.875rem 2rem;
+        border-radius: 8px;
         cursor: pointer;
         font-size: 1rem;
+        font-weight: 600;
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
       }
+      
+      button[type="submit"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+      }
+      
+      button[type="submit"]:active {
+        transform: translateY(0);
+      }
+      
       button[type="submit"][disabled] {
         opacity: 0.6;
         cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
       }
+      
+      /* Checkbox styling */
+      input[type="checkbox"] {
+        margin-right: 0.5rem;
+        transform: scale(1.2);
+      }
+      
+      /* ---------- Results ---------- */
       pre {
         margin: 0;
-        background: #f1f3f5;
-        padding: 0.8rem 1rem;
-        border-radius: 4px;
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 8px;
         white-space: pre-wrap;
         overflow-x: auto;
+        border: 1px solid var(--border-color);
+        font-size: 0.9rem;
+        line-height: 1.5;
       }
+      
       iframe {
         border: none;
         width: 100%;
         height: 650px;
-        margin-top: 1rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        margin-top: 1.5rem;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
       }
+      
+      /* ---------- Table ---------- */
       table {
         width: 100%;
         border-collapse: collapse;
+        background: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
       }
+      
       th,
       td {
-        padding: 0.4rem 0.6rem;
-        border: 1px solid #e5e7eb;
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
         text-align: left;
-        font-size: 0.9rem;
+        font-size: 0.95rem;
       }
+      
       th {
-        background: #fafafa;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
       }
+      
+      tr:hover {
+        background: var(--primary-light);
+      }
+      
+      /* ---------- Pagination ---------- */
       .pagination {
-        margin: 0.75rem 0 0;
+        margin: 1.5rem 0 0;
         display: flex;
-        justify-content: center;   /* ← 居中 */
+        justify-content: center;
         align-items: center;
-        gap: .6rem;
-        font-size: .9rem;
+        gap: 1rem;
+        font-size: 0.95rem;
       }
+      
       .pagination button {
-        /* margin-left: 0.3rem;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.85rem; */
-        padding: .35rem .8rem;
+        padding: 0.5rem 1rem;
+        background: #fff;
+        border: 2px solid var(--border-color);
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: var(--transition);
       }
+      
+      .pagination button:hover:not(:disabled) {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      
+      .pagination button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      
+      #page-info {
+        font-weight: 600;
+        color: var(--text-secondary);
+        min-width: 120px;
+        text-align: center;
+      }
+      
       /* ---------- Spinner ---------- */
       .spinner {
         display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid #cfd0d1;
+        width: 24px;
+        height: 24px;
+        border: 3px solid var(--primary-light);
         border-top-color: var(--primary);
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
+        margin-left: 0.5rem;
       }
+      
       @keyframes spin {
         to {
           transform: rotate(360deg);
         }
+      }
+      
+      /* ---------- Responsive Design ---------- */
+      @media (max-width: 768px) {
+        .sidebar {
+          width: 100%;
+          height: auto;
+          position: relative;
+          padding: 1rem;
+        }
+        
+        .main {
+          margin-left: 0;
+          padding: 1rem;
+          grid-template-columns: 1fr; /* 移动端变为单列 */
+        }
+        
+        .main-content, .sidebar-right {
+          grid-column: 1 / 2; /* 全部占满 */
+        }
+        
+        .main h1 {
+          font-size: 2rem;
+        }
+        
+        .card {
+          padding: 1.5rem;
+        }
+      }
+      
+      /* ---------- Loading States ---------- */
+      .loading {
+        opacity: 0.7;
+        pointer-events: none;
+      }
+      
+      /* ---------- Success/Error Messages ---------- */
+      .message {
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-weight: 500;
+      }
+      
+      .message.success {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+      }
+      
+      .message.error {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+        border: 1px solid rgba(239, 68, 68, 0.2);
       }
     </style>
   </head>
@@ -176,102 +420,119 @@
     <aside class="sidebar">
       <h2>Function Menu</h2>
       <ul class="menu">
-        <!-- <li><button id="nav-single" class="active">单只分析</button></li>
-        <li><button id="nav-batch">批量分析</button></li>
-        <li><button id="nav-list">获取股票列表</button></li> -->
-        <li><button id="nav-single" class="active">Single Stock</button></li>
-        <li><button id="nav-batch">Batch Analysis</button></li>
-        <li><button id="nav-list">Stock List</button></li>
+        <li><button id="nav-single" class="active">📈 Single Stock</button></li>
+        <li><button id="nav-batch">📊 Batch Analysis</button></li>
+        <li><button id="nav-list">📋 Stock List</button></li>
+        <li><button id="nav-forum" onclick="window.location.href='/forum/index.html'">💬 Forum</button></li>
       </ul>
     </aside>
 
     <!-- ================= Main ================= -->
     <main class="main">
-      <h1>Stock Analysis System</h1>
+      <div class="main-content">
+        <h1>Stock Analysis System</h1>
 
-      <!-- ===== 单只分析 ===== -->
-      <section id="section-single">
-        <form id="form-single" class="card">
-          <label for="single-code">Stock Code *</label>
-          <input id="single-code" name="stock_code" placeholder="如 600519 或 107.IWF" required />
+        <!-- ===== 单只分析 ===== -->
+        <section id="section-single">
+          <form id="form-single" class="card">
+            <h3>Single Stock Analysis</h3>
+            <label for="single-code">Stock Code *</label>
+            <input id="single-code" name="stock_code" placeholder="e.g., 600519 or 107.IWF" required />
 
-          <label for="single-days">Look-back Days (default 60)</label>
-          <input id="single-days" name="days" type="number" value="60" min="15" />
+            <label for="single-days">Look-back Days (default 60)</label>
+            <input id="single-days" name="days" type="number" value="60" min="15" />
 
-          <button type="submit" id="btn-single">Start Analysis</button>
-          <span id="spin-single" style="display:none" class="spinner"></span>
-        </form>
+            <button type="submit" id="btn-single">
+              <span>Start Analysis</span>
+              <span id="spin-single" style="display:none" class="spinner"></span>
+            </button>
+          </form>
 
-        <div id="res-single" style="display:none" class="card">
-          <h3>Analysis Result</h3>
-          <pre id="json-single"></pre>
-          <iframe id="frame-single" style="display:none"></iframe>
-        </div>
-      </section>
-
-      <!-- ===== 批量分析 ===== -->
-      <section id="section-batch" style="display:none">
-        <form id="form-batch" class="card">
-          <label for="batch-codes">Stock Codes (comma-separated)</label>
-          <textarea id="batch-codes" name="stock_codes" placeholder="如 600519,000001,107.IWF"></textarea>
-
-          <label for="batch-days">Look-back Days (default 60)</label>
-          <input id="batch-days" name="days" type="number" value="60" min="15" />
-
-          <label>
-            <input id="batch-topgains" type="checkbox" /> Sort by Gains
-          </label>
-
-          <label for="batch-k">Top K (default 10)</label>
-          <input id="batch-k" type="number" value="10" min="1" />
-
-          <button type="submit" id="btn-batch">Start Batch Analysis</button>
-          <span id="spin-batch" style="display:none" class="spinner"></span>
-        </form>
-
-        <div id="res-batch" style="display:none" class="card">
-          <h3>Batch Result</h3>
-          <pre id="json-batch"></pre>
-        </div>
-      </section>
-
-      <!-- ===== 股票列表 ===== -->
-      <section id="section-list" style="display:none">
-        <form id="form-list" class="card">
-          <label for="list-ex">Exchange (blank = all)</label>
-          <select id="list-ex">
-            <option value="">ALL</option>
-            <option value="SH">SH</option>
-            <option value="SZ">SZ</option>
-            <option value="US">US</option>
-          </select>
-
-          <label><input id="list-refresh" type="checkbox" /> Force Refresh</label>
-
-          <label for="list-size">Items per page</label>
-          <input id="list-size" type="number" value="100" min="10" max="1000" />
-
-          <button type="submit" id="btn-list">Get List</button>
-          <span id="spin-list" style="display:none" class="spinner"></span>
-        </form>
-
-        <div id="res-list" style="display:none" class="card">
-          <h3>Stock List</h3>
-          <div style="overflow-x:auto">
-            <table>
-              <thead>
-                <tr><th>Code</th><th>Name</th></tr>
-              </thead>
-              <tbody id="tbl-list"></tbody>
-            </table>
+          <div id="res-single" style="display:none" class="card">
+            <h3>Analysis Result</h3>
+            <pre id="json-single"></pre>
+            <iframe id="frame-single" style="display:none"></iframe>
           </div>
-          <div class="pagination">
-            <button id="prev-page">Prev</button>
-            <span id="page-info"></span>
-            <button id="next-page">Next</button>>
+        </section>
+
+        <!-- ===== 批量分析 ===== -->
+        <section id="section-batch" style="display:none">
+          <form id="form-batch" class="card">
+            <h3>Batch Stock Analysis</h3>
+            <label for="batch-codes">Stock Codes (comma-separated)</label>
+            <textarea id="batch-codes" name="stock_codes" placeholder="e.g., 600519,000001,107.IWF"></textarea>
+
+            <label for="batch-days">Look-back Days (default 60)</label>
+            <input id="batch-days" name="days" type="number" value="60" min="15" />
+
+            <label style="display: flex; align-items: center; margin-bottom: 1rem;">
+              <input id="batch-topgains" type="checkbox" />
+              <span style="margin-left: 0.5rem;">Sort by Gains</span>
+            </label>
+
+            <label for="batch-k">Top K (default 10)</label>
+            <input id="batch-k" type="number" value="10" min="1" />
+
+            <button type="submit" id="btn-batch">
+              <span>Start Batch Analysis</span>
+              <span id="spin-batch" style="display:none" class="spinner"></span>
+            </button>
+          </form>
+
+          <div id="res-batch" style="display:none" class="card">
+            <h3>Batch Result</h3>
+            <pre id="json-batch"></pre>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <!-- ===== 股票列表 ===== -->
+        <section id="section-list" style="display:none">
+          <form id="form-list" class="card">
+            <h3>Stock List Management</h3>
+            <label for="list-ex">Exchange (blank = all)</label>
+            <select id="list-ex">
+              <option value="">ALL</option>
+              <option value="SH">SH</option>
+              <option value="SZ">SZ</option>
+              <option value="US">US</option>
+            </select>
+
+            <label style="display: flex; align-items: center; margin-bottom: 1rem;">
+              <input id="list-refresh" type="checkbox" />
+              <span style="margin-left: 0.5rem;">Force Refresh</span>
+            </label>
+
+            <label for="list-size">Items per page</label>
+            <input id="list-size" type="number" value="100" min="10" max="1000" />
+
+            <button type="submit" id="btn-list">
+              <span>Get List</span>
+              <span id="spin-list" style="display:none" class="spinner"></span>
+            </button>
+          </form>
+
+          <div id="res-list" style="display:none" class="card">
+            <h3>Stock List</h3>
+            <div style="overflow-x:auto">
+              <table>
+                <thead>
+                  <tr><th>Code</th><th>Name</th></tr>
+                </thead>
+                <tbody id="tbl-list"></tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <button id="prev-page">← Previous</button>
+              <span id="page-info"></span>
+              <button id="next-page">Next →</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="sidebar-right" id="chatbot-container">
+        <!-- 聊天框将在这里加载 -->
+      </aside>
     </main>
 
     <script>
