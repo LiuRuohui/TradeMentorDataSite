@@ -1,6 +1,3 @@
-// 弹窗和浮动图标功能的JavaScript代码
-// 回退为iframe嵌入方式
-
 document.addEventListener('DOMContentLoaded', function() {
   // 创建样式
   const style = document.createElement('style');
@@ -55,6 +52,9 @@ document.addEventListener('DOMContentLoaded', function() {
       border-radius: 0.5rem;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
       overflow: hidden;
+      transform: translate(0, 0); /* 用于定位 */
+      transition: transform 0.3s ease; /* 添加过渡效果 */
+      cursor: move; /* 整个弹窗显示拖动光标 */
     }
     .popup-header {
       display: flex;
@@ -85,6 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
       height: 100%;
       padding: 0;
       margin: 0;
+      cursor: default; /* 内容区域恢复默认光标 */
     }
     .embedded-iframe {
       width: 100%;
@@ -132,14 +133,33 @@ document.addEventListener('DOMContentLoaded', function() {
   `;
   document.body.appendChild(servicePopup);
 
-  // 事件监听
+  // 获取弹窗元素
+  const popupContainer = servicePopup.querySelector('.popup-container');
+  const popupContent = servicePopup.querySelector('.popup-content');
   const closeButton = servicePopup.querySelector('.close-button');
+
+  // 拖动相关变量
+  let isDragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+  let currentX = 0;
+  let currentY = 0;
+  let initialX = 0;
+  let initialY = 0;
+
+  // 事件监听
   floatingIcon.addEventListener('click', function() {
     togglePopup();
   });
   closeButton.addEventListener('click', function() {
     togglePopup(false);
   });
+
+  // 拖动事件监听 - 整个弹窗可拖动
+  popupContainer.addEventListener('mousedown', startDrag);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', endDrag);
+
   function togglePopup(show) {
     const isVisible = servicePopup.classList.contains('visible');
     if (show === undefined) {
@@ -165,5 +185,78 @@ document.addEventListener('DOMContentLoaded', function() {
         </svg>
       `;
     }
+  }
+
+  // 拖动相关函数
+  function startDrag(e) {
+    // 检查是否点击了iframe或关闭按钮，如果是则不拖动
+    if (e.target.tagName === 'IFRAME' || e.target === closeButton) {
+      return;
+    }
+
+    // 阻止事件冒泡和默认行为
+    e.stopPropagation();
+    e.preventDefault();
+
+    // 只在弹窗显示时允许拖动
+    if (!servicePopup.classList.contains('visible')) return;
+
+    // 重置拖动状态
+    isDragging = true;
+
+    // 获取当前弹窗的位置
+    const transform = popupContainer.style.transform;
+    if (transform) {
+      const matches = transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+      if (matches && matches.length >= 3) {
+        currentX = parseFloat(matches[1]);
+        currentY = parseFloat(matches[2]);
+      }
+    } else {
+      currentX = 0;
+      currentY = 0;
+    }
+
+    // 计算鼠标位置与弹窗左上角的偏移量
+    initialX = e.clientX;
+    initialY = e.clientY;
+
+    // 临时提高弹窗层级，避免拖动时被其他元素遮挡
+    popupContainer.style.zIndex = '10000';
+
+    // 禁用弹窗的过渡效果，使拖动更流畅
+    popupContainer.style.transition = 'none';
+  }
+
+  function drag(e) {
+    if (!isDragging) return;
+
+    // 阻止默认行为
+    e.preventDefault();
+
+    // 计算移动距离
+    const dx = e.clientX - initialX;
+    const dy = e.clientY - initialY;
+
+    // 更新当前位置
+    currentX += dx;
+    currentY += dy;
+
+    // 设置弹窗位置
+    popupContainer.style.transform = `translate(${currentX}px, ${currentY}px)`;
+
+    // 更新初始位置，避免累积误差
+    initialX = e.clientX;
+    initialY = e.clientY;
+  }
+
+  function endDrag() {
+    if (!isDragging) return;
+
+    isDragging = false;
+
+    // 恢复弹窗层级和过渡效果
+    popupContainer.style.zIndex = '';
+    popupContainer.style.transition = 'transform 0.3s ease';
   }
 });
