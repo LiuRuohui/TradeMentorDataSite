@@ -489,7 +489,24 @@
 
         <div id="res-batch" style="display:none" class="card">
           <h3>Batch Result</h3>
-          <pre id="json-batch"></pre>
+          <table id="result-table" border="1">
+          <thead>
+            <tr>
+              <th>代码</th>
+              <th>名称</th>
+              <th>总市值（亿元）</th>
+              <th>起始日价（元）</th>
+              <th>截止日价（元）</th>
+              <th>涨幅(%)</th>
+              <th>得分</th>
+              <th>交易所</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
+        <p>csv_url: <span id="csv-url"></span></p>
+        <p>charts_dir: <span id="charts-dir"></span></p>
         </div>
       </section>
 
@@ -609,19 +626,43 @@
           k: Number(document.getElementById("batch-k").value) || 10,
         };
         try {
-          const r = await fetch("/analyze/batch", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          const data = await r.json();
-          if (!r.ok) throw new Error(data.detail || "服务器错误");
-          document.getElementById("json-batch").textContent = JSON.stringify(
-            data,
-            null,
-            2
-          );
-          document.getElementById("res-batch").style.display = "block";
+            const r = await fetch("/analyze/batch", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || "服务器错误");
+
+            // 获取表格tbody元素和展示csv_url、charts_dir的元素
+            const tbody = document.querySelector("#result-table tbody");
+            const csvUrlSpan = document.getElementById("csv-url");
+            const chartsDirSpan = document.getElementById("charts-dir");
+
+            // 清空tbody原有内容
+            tbody.innerHTML = "";
+
+            // 遍历results数组，生成表格行
+            data.results.forEach(item => {
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                <td>${item["代码"]}</td>
+                <td>${item["名称"]}</td>
+                <td>${item["总市值（亿元）"]}</td>
+                <td>${item["起始日价（元）"]}</td>
+                <td>${item["截止日价（元）"]}</td>
+                <td>${item["涨幅(%)"]}</td>
+                <td>${item["得分"]}</td>
+                <td>${item["交易所"]}</td>
+              `;
+              tbody.appendChild(row);
+            });
+
+            // 展示csv_url和charts_dir
+            csvUrlSpan.textContent = data.csv_url;
+            chartsDirSpan.textContent = data.charts_dir;
+
+            document.getElementById("res-batch").style.display = "block";
         } catch (err) {
           alert(err.message);
         } finally {
