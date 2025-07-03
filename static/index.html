@@ -489,24 +489,24 @@
 
         <div id="res-batch" style="display:none" class="card">
           <h3>Batch Result</h3>
-          <table id="result-table" border="1">
-          <thead>
-            <tr>
-              <th>代码</th>
-              <th>名称</th>
-              <th>总市值（亿元）</th>
-              <th>起始日价（元）</th>
-              <th>截止日价（元）</th>
-              <th>涨幅(%)</th>
-              <th>得分</th>
-              <th>交易所</th>
-            </tr>
-          </thead>
-          <tbody>
-          </tbody>
-        </table>
-        <p>csv_url: <span id="csv-url"></span></p>
-        <p>charts_dir: <span id="charts-dir"></span></p>
+          <table id="result-table" class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">代码</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名称</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总市值（亿元）</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">起始日价（元）</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">截止日价（元）</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">涨幅(%)</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">得分</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">交易所</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+            </tbody>
+          </table>
+          <p>csv_url: <span id="csv-url"></span></p>
+          <p>charts_dir: <span id="charts-dir"></span></p>
         </div>
       </section>
 
@@ -626,43 +626,57 @@
           k: Number(document.getElementById("batch-k").value) || 10,
         };
         try {
-            const r = await fetch("/analyze/batch", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
+          const r = await fetch("/analyze/batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await r.json();
+          if (!r.ok) throw new Error(data.detail || "服务器错误");
+
+          const tbody = document.querySelector("#result-table tbody");
+          const csvUrlSpan = document.getElementById("csv-url");
+          const chartsDirSpan = document.getElementById("charts-dir");
+          const chartsDir = data.charts_dir; // 保存charts_dir用于行点击跳转
+
+          tbody.innerHTML = "";
+
+          data.results.forEach(item => {
+            const row = document.createElement("tr");
+            row.className = "hover:bg-gray-50 cursor-pointer transition-colors";
+            row.dataset.code = item["代码"]; // 存储代码用于跳转
+
+            // 添加强调色（示例：涨幅为正显示绿色，为负显示红色）
+            const changeColor = item["涨幅(%)"] > 0
+              ? "text-green-600"
+              : item["涨幅(%)"] < 0
+                ? "text-red-600"
+                : "";
+
+            row.innerHTML = `
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item["代码"]}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item["名称"]}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item["总市值（亿元）"]}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item["起始日价（元）"]}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item["截止日价（元）"]}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm ${changeColor}">${item["涨幅(%)"]}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item["得分"]}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item["交易所"]}</td>
+            `;
+
+            // 添加行点击事件
+            row.addEventListener("click", () => {
+              const code = row.dataset.code;
+              const url = `${chartsDir}/${code}_analysis.html`;
+              window.open(url, "_blank"); // 在新标签页打开
             });
-            const data = await r.json();
-            if (!r.ok) throw new Error(data.detail || "服务器错误");
 
-            // 获取表格tbody元素和展示csv_url、charts_dir的元素
-            const tbody = document.querySelector("#result-table tbody");
-            const csvUrlSpan = document.getElementById("csv-url");
-            const chartsDirSpan = document.getElementById("charts-dir");
+            tbody.appendChild(row);
+          });
 
-            // 清空tbody原有内容
-            tbody.innerHTML = "";
-
-            // 遍历results数组，生成表格行
-            data.results.forEach(item => {
-              const row = document.createElement("tr");
-              row.innerHTML = `
-                <td>${item["代码"]}</td>
-                <td>${item["名称"]}</td>
-                <td>${item["总市值（亿元）"]}</td>
-                <td>${item["起始日价（元）"]}</td>
-                <td>${item["截止日价（元）"]}</td>
-                <td>${item["涨幅(%)"]}</td>
-                <td>${item["得分"]}</td>
-                <td>${item["交易所"]}</td>
-              `;
-              tbody.appendChild(row);
-            });
-
-            // 展示csv_url和charts_dir
-            csvUrlSpan.textContent = data.csv_url;
-            chartsDirSpan.textContent = data.charts_dir;
-
-            document.getElementById("res-batch").style.display = "block";
+          csvUrlSpan.textContent = data.csv_url;
+          chartsDirSpan.textContent = data.charts_dir;
+          document.getElementById("res-batch").style.display = "block";
         } catch (err) {
           alert(err.message);
         } finally {
