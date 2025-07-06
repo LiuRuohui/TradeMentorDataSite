@@ -204,6 +204,7 @@ async def analyze_batch_stocks(
 
         # -------- 循环分析每只股票 --------
         results: list[dict] = []
+        out_dir = _make_output_dir()
         for code in set(request.stock_codes):          # 去重
             hist = get_historical_data(code, start_date, end_date,
                                        debug=request.debug)
@@ -215,6 +216,28 @@ async def analyze_batch_stocks(
                 continue
 
             score = calculate_stock_score(hist, indi)
+
+            # -------- 构造 DataFrame（供图表函数使用）--------
+            df = pd.DataFrame([{
+                "代码": code,
+                "名称": code,  # 若需中文名称，可自行查询
+                "总市值（亿元）": "N/A",
+                "起始日价（元）": hist['close'].iloc[0],
+                "截止日价（元）": hist['close'].iloc[-1],
+                "涨幅(%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
+                "得分": score
+            }])
+
+            # -------- 输出目录 + 异步生成图表 --------
+            background_tasks.add_task(
+                generate_stock_charts,
+                df,
+                start_date,
+                end_date,
+                out_dir,
+                k=1
+            )
+
             change_pct = (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100
 
             results.append({
@@ -241,16 +264,7 @@ async def analyze_batch_stocks(
 
         df_topk = df.head(request.k)
 
-        # -------- 输出目录 + 异步生成图表 --------
-        out_dir = _make_output_dir()
-        background_tasks.add_task(
-            generate_stock_charts,
-            df_topk,
-            start_date,
-            end_date,
-            out_dir,
-            k=request.k
-        )
+
 
         # -------- 保存 CSV --------
         csv_path = os.path.join(out_dir, "analysis_results.csv")
@@ -288,7 +302,6 @@ async def get_stock_list(req: StockListRequest):
             df = df[df["code"].str.match(r"^\d{3}\.[A-Za-z]{3,5}$", na=False)]
         else:
             raise HTTPException(400, "exchange 仅支持 SH/SZ/US")
-
     # --- 返回 JSON（已自动将 NaN→None）---
     return {
         "count": len(df),
