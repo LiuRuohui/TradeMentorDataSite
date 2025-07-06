@@ -1,5 +1,7 @@
 import sqlite3
 import os
+import hashlib
+import secrets
 from datetime import datetime
 from typing import List, Dict, Optional
 
@@ -19,16 +21,32 @@ class ForumDatabase:
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        # 创建用户表
+        # 创建用户表 - 扩展版本
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE,
+                password_hash TEXT NOT NULL,
+                user_type TEXT NOT NULL DEFAULT 'Stock Newbie',
                 avatar TEXT,
                 join_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 post_count INTEGER DEFAULT 0,
-                reputation INTEGER DEFAULT 0
+                reputation INTEGER DEFAULT 0,
+                is_active BOOLEAN DEFAULT 1,
+                last_login TIMESTAMP
+            )
+        ''')
+        
+        # 创建用户会话表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                session_token TEXT UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id)
             )
         ''')
         
@@ -101,25 +119,201 @@ class ForumDatabase:
         # 插入初始数据
         self.insert_initial_data()
     
+    def hash_password(self, password: str) -> str:
+        """密码哈希"""
+        return hashlib.sha256(password.encode()).hexdigest()
+    
+    def verify_password(self, password: str, password_hash: str) -> bool:
+        """验证密码"""
+        return self.hash_password(password) == password_hash
+    
+    def generate_session_token(self) -> str:
+        """生成会话令牌"""
+        return secrets.token_urlsafe(32)
+    
+    def register_user(self, username: str, email: str, password: str, user_type: str) -> Dict:
+        """注册新用户"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # 检查用户名是否已存在
+            cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
+            if cursor.fetchone():
+                raise ValueError("用户名已存在")
+            
+            # 检查邮箱是否已存在
+            if email:
+                cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+                if cursor.fetchone():
+                    raise ValueError("邮箱已被注册")
+            
+            # 密码哈希
+            password_hash = self.hash_password(password)
+            
+            # 插入新用户
+            cursor.execute('''
+                INSERT INTO users (username, email, password_hash, user_type)
+                VALUES (?, ?, ?, ?)
+            ''', (username, email, password_hash, user_type))
+            
+            user_id = cursor.lastrowid
+            
+            # 获取用户信息
+            cursor.execute('''
+                SELECT id, username, email, user_type, avatar, join_date
+                FROM users WHERE id = ?
+            ''', (user_id,))
+            
+            user_data = dict(cursor.fetchone())
+            conn.commit()
+            
+            return {"success": True, "user": user_data}
+            
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    def login_user(self, username: str, password: str) -> Dict:
+        """用户登录"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # 查找用户
+            cursor.execute('''
+                SELECT id, username, email, password_hash, user_type, avatar, join_date
+                FROM users WHERE username = ? AND is_active = 1
+            ''', (username,))
+            
+            user = cursor.fetchone()
+            if not user:
+                raise ValueError("用户名不存在或账户已被禁用")
+            
+            user_data = dict(user)
+            
+            # 验证密码
+            if not self.verify_password(password, user_data['password_hash']):
+                raise ValueError("密码错误")
+            
+            # 生成会话令牌
+            session_token = self.generate_session_token()
+            
+            # 设置过期时间（7天）
+            from datetime import datetime, timedelta
+            expires_at = datetime.now() + timedelta(days=7)
+            
+            # 保存会话
+            cursor.execute('''
+                INSERT INTO user_sessions (user_id, session_token, expires_at)
+                VALUES (?, ?, ?)
+            ''', (user_data['id'], session_token, expires_at))
+            
+            # 更新最后登录时间
+            cursor.execute('''
+                UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?
+            ''', (user_data['id'],))
+            
+            conn.commit()
+            
+            # 移除敏感信息
+            del user_data['password_hash']
+            
+            return {
+                "success": True,
+                "user": user_data,
+                "session_token": session_token
+            }
+            
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    def verify_session(self, session_token: str) -> Optional[Dict]:
+        """验证会话令牌"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # 查找有效会话
+            cursor.execute('''
+                SELECT u.id, u.username, u.email, u.user_type, u.avatar, u.join_date
+                FROM users u
+                JOIN user_sessions s ON u.id = s.user_id
+                WHERE s.session_token = ? AND s.expires_at > CURRENT_TIMESTAMP
+                AND u.is_active = 1
+            ''', (session_token,))
+            
+            user = cursor.fetchone()
+            if user:
+                return dict(user)
+            return None
+            
+        finally:
+            conn.close()
+    
+    def logout_user(self, session_token: str) -> bool:
+        """用户登出"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('DELETE FROM user_sessions WHERE session_token = ?', (session_token,))
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+    
+    def get_user_by_id(self, user_id: int) -> Optional[Dict]:
+        """根据ID获取用户信息"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                SELECT id, username, email, user_type, avatar, join_date, post_count, reputation
+                FROM users WHERE id = ? AND is_active = 1
+            ''', (user_id,))
+            
+            user = cursor.fetchone()
+            return dict(user) if user else None
+        finally:
+            conn.close()
+    
+    def get_user_types(self) -> List[str]:
+        """获取可用的用户类型"""
+        return [
+            "Trading Expert",      # 交易专家
+            "Stock Newbie",        # 股票新手
+            "Senior Investor",     # 资深投资者
+            "Market Analyst",      # 市场分析师
+            "Risk Manager"         # 风险管理师
+        ]
+    
     def insert_initial_data(self):
         """插入初始数据"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        # 插入默认用户
+        # 插入默认用户 - 添加密码和用户类型
         default_users = [
-            ('Trading Expert', 'expert@example.com', '👨‍💼'),
-            ('Stock Newbie', 'newbie@example.com', '👶'),
-            ('Senior Investor', 'investor@example.com', '👴'),
-            ('Market Analyst', 'analyst@example.com', '📊'),
-            ('Risk Manager', 'risk@example.com', '🛡️')
+            ('Trading Expert', 'expert@example.com', '👨‍💼', 'Trading Expert', 'password123'),
+            ('Stock Newbie', 'newbie@example.com', '👶', 'Stock Newbie', 'password123'),
+            ('Senior Investor', 'investor@example.com', '👴', 'Senior Investor', 'password123'),
+            ('Market Analyst', 'analyst@example.com', '📊', 'Market Analyst', 'password123'),
+            ('Risk Manager', 'risk@example.com', '🛡️', 'Risk Manager', 'password123')
         ]
         
-        for username, email, avatar in default_users:
+        for username, email, avatar, user_type, password in default_users:
+            password_hash = self.hash_password(password)
             cursor.execute('''
-                INSERT OR IGNORE INTO users (username, email, avatar)
-                VALUES (?, ?, ?)
-            ''', (username, email, avatar))
+                INSERT OR IGNORE INTO users (username, email, avatar, user_type, password_hash)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (username, email, avatar, user_type, password_hash))
         
         # 插入默认分类
         categories = [
@@ -275,7 +469,7 @@ class ForumDatabase:
         return tags
     
     def create_post(self, title: str, content: str, author: str, category: str, tags: List[str]) -> int:
-        """创建新帖子"""
+        """创建新帖子（兼容旧版本）"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -351,6 +545,88 @@ class ForumDatabase:
         finally:
             conn.close()
     
+    def create_post_by_user_id(self, title: str, content: str, user_id: int, category: str, tags: List[str]) -> int:
+        """根据用户ID创建新帖子"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # 验证用户是否存在
+            cursor.execute('SELECT id FROM users WHERE id = ? AND is_active = 1', (user_id,))
+            if not cursor.fetchone():
+                raise ValueError(f"User with ID {user_id} not found or inactive")
+            
+            # 获取分类ID
+            cursor.execute('SELECT id FROM categories WHERE name = ?', (category,))
+            category_result = cursor.fetchone()
+            if not category_result:
+                raise ValueError(f"Category '{category}' not found")
+            category_id = category_result['id']
+            
+            # 插入帖子
+            cursor.execute('''
+                INSERT INTO posts (title, content, author_id, category_id)
+                VALUES (?, ?, ?, ?)
+            ''', (title, content, user_id, category_id))
+            
+            post_id = cursor.lastrowid
+            
+            # 处理标签
+            for tag_name in tags:
+                # 获取或创建标签
+                cursor.execute('SELECT id FROM tags WHERE name = ?', (tag_name,))
+                tag_result = cursor.fetchone()
+                if tag_result:
+                    tag_id = tag_result['id']
+                else:
+                    cursor.execute('INSERT INTO tags (name) VALUES (?)', (tag_name,))
+                    tag_id = cursor.lastrowid
+                
+                # 关联帖子和标签
+                cursor.execute('''
+                    INSERT OR IGNORE INTO post_tags (post_id, tag_id)
+                    VALUES (?, ?)
+                ''', (post_id, tag_id))
+            
+            # 更新用户帖子计数
+            cursor.execute('''
+                UPDATE users 
+                SET post_count = (
+                    SELECT COUNT(*) FROM posts WHERE author_id = ?
+                )
+                WHERE id = ?
+            ''', (user_id, user_id))
+            
+            # 更新分类帖子计数
+            cursor.execute('''
+                UPDATE categories 
+                SET post_count = (
+                    SELECT COUNT(*) FROM posts WHERE category_id = ?
+                )
+                WHERE id = ?
+            ''', (category_id, category_id))
+            
+            # 更新标签帖子计数
+            for tag_name in tags:
+                cursor.execute('''
+                    UPDATE tags 
+                    SET post_count = (
+                        SELECT COUNT(*) FROM post_tags pt 
+                        JOIN posts p ON pt.post_id = p.id 
+                        WHERE pt.tag_id = tags.id
+                    )
+                    WHERE name = ?
+                ''', (tag_name,))
+            
+            conn.commit()
+            return post_id
+            
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
     def get_forum_stats(self) -> Dict:
         """获取论坛统计信息"""
         conn = self.get_connection()
@@ -380,6 +656,36 @@ class ForumDatabase:
             'posts_today': posts_today,
             'total_categories': total_categories
         }
+    
+    def get_user_posts(self, user_id: int) -> List[Dict]:
+        """获取指定用户的帖子"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT 
+                p.id, p.title, p.content, p.views, p.likes, p.created_at,
+                u.username as author, u.avatar, u.user_type,
+                c.name as category,
+                GROUP_CONCAT(t.name) as tags
+            FROM posts p
+            JOIN users u ON p.author_id = u.id
+            JOIN categories c ON p.category_id = c.id
+            LEFT JOIN post_tags pt ON p.id = pt.post_id
+            LEFT JOIN tags t ON pt.tag_id = t.id
+            WHERE p.author_id = ?
+            GROUP BY p.id
+            ORDER BY p.created_at DESC
+        ''', (user_id,))
+        
+        posts = []
+        for row in cursor.fetchall():
+            post = dict(row)
+            post['tags'] = post['tags'].split(',') if post['tags'] else []
+            posts.append(post)
+        
+        conn.close()
+        return posts
 
 # 创建全局数据库实例
 db = ForumDatabase() 

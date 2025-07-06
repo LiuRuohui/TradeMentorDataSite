@@ -435,6 +435,22 @@
     <!-- ================= Sidebar ================= -->
     <aside class="sidebar">
       <h2>Function Menu</h2>
+      
+      <!-- 用户登录状态 -->
+      <div id="user-info" style="display: none; margin-bottom: 1rem; padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2);">
+        <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+          <span id="user-avatar" style="font-size: 1.5rem; margin-right: 0.5rem;"></span>
+          <span id="user-name" style="font-weight: 600; color: var(--text-primary);"></span>
+        </div>
+        <div id="user-type" style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;"></div>
+        <button id="logout-btn" style="width: 100%; padding: 0.5rem; background: var(--danger); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem;">登出</button>
+      </div>
+      
+      <div id="login-prompt" style="margin-bottom: 1rem; padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.2);">
+        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">请登录以使用完整功能</div>
+        <button id="login-btn" style="width: 100%; padding: 0.5rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem;">登录/注册</button>
+      </div>
+      
       <ul class="menu">
         <li><button id="nav-single" class="active">Single Stock</button></li>
         <li><button id="nav-batch">Batch Analysis</button></li>
@@ -445,7 +461,15 @@
 
     <!-- ================= Main ================= -->
     <main class="main">
-      <h1>Stock Analysis System</h1>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
+        <div style="flex:1; display: flex; justify-content: center;">
+          <h1 style="margin: 0; text-align: center;">Stock Analysis System</h1>
+        </div>
+        <div id="top-auth-bar">
+          <button id="top-login-btn" style="margin-right: 12px; padding: 0.5rem 1.2rem; background: var(--primary); color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">登录</button>
+          <button id="top-register-btn" style="padding: 0.5rem 1.2rem; background: var(--primary-dark); color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer;">注册</button>
+        </div>
+      </div>
 
       <!-- ===== 单只分析 ===== -->
       <section id="section-single">
@@ -550,6 +574,77 @@
     </main>
 
     <script>
+      /* ================= 用户认证 ================= */
+      let currentUser = null;
+      let authToken = null;
+
+      // 检查登录状态
+      function checkLoginStatus() {
+        const user = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+        
+        if (user && token) {
+          currentUser = JSON.parse(user);
+          authToken = token;
+          showUserInfo();
+        } else {
+          showLoginPrompt();
+        }
+      }
+
+      // 显示用户信息
+      function showUserInfo() {
+        document.getElementById('user-info').style.display = 'block';
+        document.getElementById('login-prompt').style.display = 'none';
+        
+        document.getElementById('user-avatar').textContent = currentUser.avatar || '👤';
+        document.getElementById('user-name').textContent = currentUser.username;
+        document.getElementById('user-type').textContent = currentUser.user_type;
+      }
+
+      // 显示登录提示
+      function showLoginPrompt() {
+        document.getElementById('user-info').style.display = 'none';
+        document.getElementById('login-prompt').style.display = 'block';
+      }
+
+      // 登出功能
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        try {
+          const response = await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${authToken}`
+            }
+          });
+          
+          // 清除本地存储
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+          currentUser = null;
+          authToken = null;
+          
+          showLoginPrompt();
+          alert('已成功登出');
+        } catch (error) {
+          console.error('登出失败:', error);
+          // 即使API调用失败，也清除本地存储
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+          currentUser = null;
+          authToken = null;
+          showLoginPrompt();
+        }
+      });
+
+      // 登录按钮
+      document.getElementById('login-btn').addEventListener('click', () => {
+        window.location.href = '/login';
+      });
+
+      // 页面加载时检查登录状态
+      checkLoginStatus();
+
       /* ================= Nav ================= */
       const sections = {
         single: document.getElementById("section-single"),
@@ -788,6 +883,29 @@
         alert("图表生成超时，请稍后手动刷新页面查看");
         return false;
       }
+
+      function updateTopAuthBar() {
+        const user = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+        const bar = document.getElementById('top-auth-bar');
+        if (user && token) {
+          bar.style.display = 'none';
+        } else {
+          bar.style.display = 'block';
+        }
+      }
+      document.getElementById('top-login-btn').onclick = function() {
+        window.location.href = '/login';
+      };
+      document.getElementById('top-register-btn').onclick = function() {
+        window.location.href = '/register';
+      };
+
+      // 在checkLoginStatus后调用
+      checkLoginStatus();
+      updateTopAuthBar();
+      // 隐藏侧边栏登录/注册按钮
+      document.getElementById('login-prompt').style.display = 'none';
     </script>
   </body>
 </html>

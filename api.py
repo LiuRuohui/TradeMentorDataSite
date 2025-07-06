@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Header
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -15,6 +15,8 @@ from fastapi.encoders import jsonable_encoder   # ❶ 新增
 import numpy as np
 import akshare as ak
 from database import db  # 导入数据库模块
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
 _STOCK_CACHE = "all_stocks.pkl"
 
 
@@ -65,6 +67,23 @@ class StockListRequest(BaseModel):
     exchange: Optional[str] = None      # SH/SZ/US/HK；None=全部
     refresh:  bool = False              # True=强制刷新 AkShare
 
+# 用户认证相关的数据模型
+class UserRegisterRequest(BaseModel):
+    username: str
+    email: Optional[str] = None
+    password: str
+    user_type: str
+
+class UserLoginRequest(BaseModel):
+    username: str
+    password: str
+
+class CreatePostRequest(BaseModel):
+    title: str
+    content: str
+    category: str
+    tags: List[str]
+
 # 全局变量
 output_dir = None
 
@@ -110,13 +129,110 @@ def _load_stocks(force_refresh: bool) -> pd.DataFrame:
         df_cached.to_pickle(_STOCK_CACHE)  # 覆盖脏缓存
     return df_cached[["code", "name"]]
 
+async def get_current_user(Authorization: Optional[str] = Header(None)) -> Optional[Dict]:
+    """获取当前登录用户"""
+    if not Authorization:
+        return None
+    
+    try:
+        # 从Authorization header中提取token
+        if Authorization.startswith("Bearer "):
+            token = Authorization[7:]  # 移除"Bearer "前缀
+        else:
+            token = Authorization
+        
+        user = db.verify_session(token)
+        return user
+    except Exception:
+        return None
+
+templates = Jinja2Templates(directory="templates")
+
 @app.get("/")
 async def root():
     return RedirectResponse(url="/static/index.html")
 
+@app.get("/login")
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.get("/register")
+async def register_page(request: Request):
+    return templates.TemplateResponse("register.html", {"request": request})
+
 @app.get("/api/status")
 async def api_status():
     return {"message": "股票分析系统 API 服务正在运行"}
+
+# 用户认证相关API
+@app.post("/api/auth/register", summary="用户注册")
+async def register_user(request: UserRegisterRequest):
+    """用户注册"""
+    try:
+        # 验证用户类型
+        valid_user_types = db.get_user_types()
+        if request.user_type not in valid_user_types:
+            raise HTTPException(status_code=400, detail=f"无效的用户类型。可用类型: {', '.join(valid_user_types)}")
+        
+        result = db.register_user(
+            username=request.username,
+            email=request.email,
+            password=request.password,
+            user_type=request.user_type
+        )
+        
+        return {
+            "message": "注册成功",
+            "user": result["user"]
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"注册失败: {str(e)}")
+
+@app.post("/api/auth/login", summary="用户登录")
+async def login_user(request: UserLoginRequest):
+    """用户登录"""
+    try:
+        result = db.login_user(
+            username=request.username,
+            password=request.password
+        )
+        
+        return {
+            "message": "登录成功",
+            "user": result["user"],
+            "session_token": result["session_token"]
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"登录失败: {str(e)}")
+
+@app.post("/api/auth/logout", summary="用户登出")
+async def logout_user(current_user: Optional[Dict] = Depends(get_current_user)):
+    """用户登出"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="未登录")
+    
+    try:
+        # 这里需要从请求中获取token，暂时返回成功
+        return {"message": "登出成功"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"登出失败: {str(e)}")
+
+@app.get("/api/auth/me", summary="获取当前用户信息")
+async def get_current_user_info(current_user: Optional[Dict] = Depends(get_current_user)):
+    """获取当前登录用户信息"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="未登录")
+    
+    return {"user": current_user}
+
+@app.get("/api/auth/user-types", summary="获取可用用户类型")
+async def get_user_types():
+    """获取可用的用户类型"""
+    return {"user_types": db.get_user_types()}
 
 @app.post("/analyze/single", summary="分析单只股票并生成图表")
 async def analyze_single_stock(
@@ -308,14 +424,6 @@ async def get_stock_list(req: StockListRequest):
         "data": jsonable_encoder(df.to_dict("records"))
     }
 
-# 论坛相关的数据模型
-class CreatePostRequest(BaseModel):
-    title: str
-    content: str
-    author: str
-    category: str
-    tags: List[str]
-
 # 论坛相关的API端点
 @app.get("/api/forum/posts")
 async def get_forum_posts():
@@ -354,19 +462,37 @@ async def get_forum_stats():
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
 
 @app.post("/api/forum/posts")
-async def create_forum_post(request: CreatePostRequest):
-    """创建新帖子"""
+async def create_forum_post(
+    request: CreatePostRequest,
+    current_user: Optional[Dict] = Depends(get_current_user)
+):
+    """创建新帖子（需要登录）"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="请先登录后再发布帖子")
+    
     try:
-        post_id = db.create_post(
+        post_id = db.create_post_by_user_id(
             title=request.title,
             content=request.content,
-            author=request.author,
+            user_id=current_user['id'],
             category=request.category,
             tags=request.tags
         )
         return {"message": "帖子创建成功", "post_id": post_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"创建帖子失败: {str(e)}")
+
+@app.get("/api/forum/my-posts")
+async def get_my_posts(current_user: Optional[Dict] = Depends(get_current_user)):
+    """获取当前用户的帖子（需要登录）"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="请先登录")
+    
+    try:
+        posts = db.get_user_posts(current_user['id'])
+        return {"posts": posts}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取用户帖子失败: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)

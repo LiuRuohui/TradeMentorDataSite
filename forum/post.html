@@ -605,10 +605,12 @@
 
                 try {
                     // 发送到服务器API
+                    const token = localStorage.getItem('token');
                     const response = await fetch('/api/forum/posts', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Authorization': token ? 'Bearer ' + token : ''
                         },
                         body: JSON.stringify(postData)
                     });
