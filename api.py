@@ -31,8 +31,8 @@ from stock_analyze import (
 )
 
 app = FastAPI(
-    title="股票分析系统 API",
-    description="提供股票数据分析和查询的 RESTful API 服务",
+    title="Stock Analysis System API",
+    description="Provides RESTful API services for stock data analysis and queries",
     version="1.0.0"
 )
 
@@ -64,8 +64,8 @@ class BatchAnalysisRequest(BaseModel):
     k: Optional[int] = 10
 
 class StockListRequest(BaseModel):
-    exchange: Optional[str] = None      # SH/SZ/US/HK；None=全部
-    refresh:  bool = False              # True=强制刷新 AkShare
+    exchange: Optional[str] = None      # SH/SZ/US/HK; None=all
+    refresh:  bool = False              # True=force refresh AkShare
 
 # 用户认证相关的数据模型
 class UserRegisterRequest(BaseModel):
@@ -88,7 +88,7 @@ class CreatePostRequest(BaseModel):
 output_dir = None
 
 def _make_output_dir() -> str:
-    """按照时间戳创建静态输出目录，返回绝对路径"""
+    """Create a static output directory by timestamp and return the absolute path"""
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = os.path.join(STATIC_DIR, ts)
     os.makedirs(path, exist_ok=True)
@@ -104,40 +104,40 @@ _FIELD_MAP = {
 }
 
 def _standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """把不同接口返回的列重命名为统一的 code / name"""
+    """Rename columns from different sources to unified code/name"""
     rename_dict = {c: _FIELD_MAP[c] for c in df.columns if c in _FIELD_MAP}
     return df.rename(columns=rename_dict)[["code", "name"]]
 
 def _load_stocks(force_refresh: bool) -> pd.DataFrame:
-    """加载（必要时抓取）股票列表，保证含 code/name"""
-    # ① 若无缓存或要求刷新 → 调 AkShare
+    """Load (or fetch if needed) stock list, ensure code/name columns"""
+    # 1. If no cache or force refresh → call AkShare
     if force_refresh or not os.path.exists(_STOCK_CACHE):
         try:
-            df_a  = _standardize_columns(ak.stock_zh_a_spot_em())   # A 股
-            df_us = _standardize_columns(ak.stock_us_spot_em())     # 美股
-            df_hk = _standardize_columns(ak.stock_hk_spot())        # 港股
+            df_a  = _standardize_columns(ak.stock_zh_a_spot_em())   # A-shares
+            df_us = _standardize_columns(ak.stock_us_spot_em())     # US stocks
+            df_hk = _standardize_columns(ak.stock_hk_spot())        # HK stocks
         except Exception as e:
-            raise HTTPException(500, f"调用 AkShare 获取股票列表失败: {e}")
+            raise HTTPException(500, f"Failed to fetch stock list from AkShare: {e}")
         df_all = pd.concat([df_a, df_us, df_hk], ignore_index=True)
         df_all.to_pickle(_STOCK_CACHE)
         return df_all
 
-    # ② 读取旧缓存 → 若缺标准列则自动修复
+    # 2. Read old cache → auto-fix if missing standard columns
     df_cached = pd.read_pickle(_STOCK_CACHE)
     if "code" not in df_cached.columns or "name" not in df_cached.columns:
         df_cached = _standardize_columns(df_cached)
-        df_cached.to_pickle(_STOCK_CACHE)  # 覆盖脏缓存
+        df_cached.to_pickle(_STOCK_CACHE)  # Overwrite dirty cache
     return df_cached[["code", "name"]]
 
 async def get_current_user(Authorization: Optional[str] = Header(None)) -> Optional[Dict]:
-    """获取当前登录用户"""
+    """Get current logged-in user"""
     if not Authorization:
         return None
     
     try:
-        # 从Authorization header中提取token
+        # Extract token from Authorization header
         if Authorization.startswith("Bearer "):
-            token = Authorization[7:]  # 移除"Bearer "前缀
+            token = Authorization[7:]
         else:
             token = Authorization
         
@@ -162,17 +162,17 @@ async def register_page(request: Request):
 
 @app.get("/api/status")
 async def api_status():
-    return {"message": "股票分析系统 API 服务正在运行"}
+    return {"message": "Stock Analysis System API service is running"}
 
 # 用户认证相关API
-@app.post("/api/auth/register", summary="用户注册")
+@app.post("/api/auth/register", summary="User Registration")
 async def register_user(request: UserRegisterRequest):
-    """用户注册"""
+    """User registration"""
     try:
-        # 验证用户类型
+        # Validate user type
         valid_user_types = db.get_user_types()
         if request.user_type not in valid_user_types:
-            raise HTTPException(status_code=400, detail=f"无效的用户类型。可用类型: {', '.join(valid_user_types)}")
+            raise HTTPException(status_code=400, detail=f"Invalid user type. Available types: {', '.join(valid_user_types)}")
         
         result = db.register_user(
             username=request.username,
@@ -182,17 +182,17 @@ async def register_user(request: UserRegisterRequest):
         )
         
         return {
-            "message": "注册成功",
+            "message": "Registration successful",
             "user": result["user"]
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"注册失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
-@app.post("/api/auth/login", summary="用户登录")
+@app.post("/api/auth/login", summary="User Login")
 async def login_user(request: UserLoginRequest):
-    """用户登录"""
+    """User login"""
     try:
         result = db.login_user(
             username=request.username,
@@ -200,51 +200,51 @@ async def login_user(request: UserLoginRequest):
         )
         
         return {
-            "message": "登录成功",
+            "message": "Login successful",
             "user": result["user"],
             "session_token": result["session_token"]
         }
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"登录失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
-@app.post("/api/auth/logout", summary="用户登出")
+@app.post("/api/auth/logout", summary="User Logout")
 async def logout_user(current_user: Optional[Dict] = Depends(get_current_user)):
-    """用户登出"""
+    """User logout"""
     if not current_user:
-        raise HTTPException(status_code=401, detail="未登录")
+        raise HTTPException(status_code=401, detail="Not logged in")
     
     try:
-        # 这里需要从请求中获取token，暂时返回成功
-        return {"message": "登出成功"}
+        # Here you need to get the token from the request, temporarily return success
+        return {"message": "Logout successful"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"登出失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Logout failed: {str(e)}")
 
-@app.get("/api/auth/me", summary="获取当前用户信息")
+@app.get("/api/auth/me", summary="Get Current User Info")
 async def get_current_user_info(current_user: Optional[Dict] = Depends(get_current_user)):
-    """获取当前登录用户信息"""
+    """Get current logged-in user info"""
     if not current_user:
-        raise HTTPException(status_code=401, detail="未登录")
+        raise HTTPException(status_code=401, detail="Not logged in")
     
     return {"user": current_user}
 
-@app.get("/api/auth/user-types", summary="获取可用用户类型")
+@app.get("/api/auth/user-types", summary="Get Available User Types")
 async def get_user_types():
-    """获取可用的用户类型"""
+    """Get available user types"""
     return {"user_types": db.get_user_types()}
 
-@app.post("/analyze/single", summary="分析单只股票并生成图表")
+@app.post("/analyze/single", summary="Analyze Single Stock and Generate Chart")
 async def analyze_single_stock(
     request: StockAnalysisRequest,
     background_tasks: BackgroundTasks
 ):
     """
-    1. 计算区间价格、技术指标、综合得分  
-    2. 立即返回 JSON；图表在后台异步生成为 HTML，前端可通过返回的 URL 访问
+    1. Calculate price range, technical indicators, and comprehensive score
+    2. Return JSON immediately; chart is generated asynchronously as HTML, frontend can access via returned URL
     """
     try:
-        # -------- 计算日期范围 --------
+        # Calculate date range
         end_date  = request.end_date or datetime.now().strftime("%Y%m%d")
         start_date = (
             request.start_date or
@@ -252,32 +252,32 @@ async def analyze_single_stock(
              timedelta(days=request.days)).strftime("%Y%m%d")
         )
 
-        # -------- 拉取行情 --------
+        # Fetch historical data
         hist = get_historical_data(
             request.stock_code, start_date, end_date,
             debug=request.debug
         )
         if hist.empty:
-            raise HTTPException(status_code=404, detail="未找到行情数据")
+            raise HTTPException(status_code=404, detail="No historical data found")
 
-        # -------- 技术指标 + 评分 --------
+        # Technical indicators + score
         indi  = calculate_technical_indicators(hist)
         if not indi:
-            raise HTTPException(status_code=500, detail="技术指标计算失败")
+            raise HTTPException(status_code=500, detail="Technical indicator calculation failed")
         score = calculate_stock_score(hist, indi)
 
-        # -------- 构造 DataFrame（供图表函数使用）--------
+        # Build DataFrame (for chart function)
         df = pd.DataFrame([{
-            "代码": request.stock_code,
-            "名称": request.stock_code,          # 若需中文名称，可自行查询
-            "总市值（亿元）": "N/A",
-            "起始日价（元）": hist['close'].iloc[0],
-            "截止日价（元）": hist['close'].iloc[-1],
-            "涨幅(%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
-            "得分": score
+            "Code": request.stock_code,
+            "Name": request.stock_code,          # Query for Chinese name if needed
+            "Market Cap (Billion)": "N/A",
+            "Start Price": hist['close'].iloc[0],
+            "End Price": hist['close'].iloc[-1],
+            "Change (%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
+            "Score": score
         }])
 
-        # -------- 异步生成图表 --------
+        # Async generate chart
         out_dir = _make_output_dir()
         background_tasks.add_task(
             generate_stock_charts,
@@ -285,10 +285,10 @@ async def analyze_single_stock(
             start_date,
             end_date,
             out_dir,
-            k=1                              # 只生成这 1 只股票
+            k=1                              # Only generate for this stock
         )
 
-        # -------- 结果 JSON --------
+        # Result JSON
         return {
             "code": request.stock_code,
             "start_price": round(hist['close'].iloc[0], 2),
@@ -304,13 +304,13 @@ async def analyze_single_stock(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/analyze/batch", summary="批量分析多只股票")
+@app.post("/analyze/batch", summary="Batch Analyze Multiple Stocks")
 async def analyze_batch_stocks(
     request: BatchAnalysisRequest,
     background_tasks: BackgroundTasks
 ):
     try:
-        # -------- 计算日期范围 --------
+        # Calculate date range
         end_date  = request.end_date or datetime.now().strftime("%Y%m%d")
         start_date = (
             request.start_date or
@@ -318,13 +318,13 @@ async def analyze_batch_stocks(
              timedelta(days=request.days)).strftime("%Y%m%d")
         )
 
-        # -------- 循环分析每只股票 --------
+        # Analyze each stock
         results: list[dict] = []
         out_dir = _make_output_dir()
-        for code in set(request.stock_codes):          # 去重
+        for code in set(request.stock_codes):          # Remove duplicates
             hist = get_historical_data(code, start_date, end_date,
                                        debug=request.debug)
-            if hist.empty or len(hist) < 15:           # 数据太短直接跳过
+            if hist.empty or len(hist) < 15:           # Skip if data too short
                 continue
 
             indi  = calculate_technical_indicators(hist)
@@ -333,18 +333,18 @@ async def analyze_batch_stocks(
 
             score = calculate_stock_score(hist, indi)
 
-            # -------- 构造 DataFrame（供图表函数使用）--------
+            # Build DataFrame (for chart function)
             df = pd.DataFrame([{
-                "代码": code,
-                "名称": code,  # 若需中文名称，可自行查询
-                "总市值（亿元）": "N/A",
-                "起始日价（元）": hist['close'].iloc[0],
-                "截止日价（元）": hist['close'].iloc[-1],
-                "涨幅(%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
-                "得分": score
+                "Code": code,
+                "Name": code,  # Query for Chinese name if needed
+                "Market Cap (Billion)": "N/A",
+                "Start Price": hist['close'].iloc[0],
+                "End Price": hist['close'].iloc[-1],
+                "Change (%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
+                "Score": score
             }])
 
-            # -------- 输出目录 + 异步生成图表 --------
+            # Output dir + async generate chart
             background_tasks.add_task(
                 generate_stock_charts,
                 df,
@@ -357,36 +357,34 @@ async def analyze_batch_stocks(
             change_pct = (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100
 
             results.append({
-                "代码"       : code,
-                "名称"       : code,                   # 如需中文名可自行查表
-                "总市值（亿元）" : "N/A",
-                "起始日价（元）": float(hist['close'].iloc[0]),
-                "截止日价（元）": float(hist['close'].iloc[-1]),
-                "涨幅(%)"    : round(change_pct, 2),
-                "得分"       : score,
-                "交易所"     : "SH" if code.startswith("6") else "SZ",
+                "Code"       : code,
+                "Name"       : code,                   # Query for Chinese name if needed
+                "Market Cap (Billion)" : "N/A",
+                "Start Price": float(hist['close'].iloc[0]),
+                "End Price": float(hist['close'].iloc[-1]),
+                "Change (%)"    : round(change_pct, 2),
+                "Score"       : score,
+                "Exchange"     : "SH" if code.startswith("6") else "SZ",
             })
 
         if not results:
-            raise HTTPException(status_code=404, detail="所有股票均分析失败或无数据")
+            raise HTTPException(status_code=404, detail="All stocks failed to analyze or no data")
 
         df = pd.DataFrame(results)
 
-        # -------- 排序 & 取前 k --------
+        # Sort & take top k
         if request.topgains:
-            df.sort_values(["涨幅(%)", "代码"], ascending=[False, True], inplace=True)
+            df.sort_values(["Change (%)", "Code"], ascending=[False, True], inplace=True)
         else:
-            df.sort_values(["得分", "代码"], ascending=[False, True], inplace=True)
+            df.sort_values(["Score", "Code"], ascending=[False, True], inplace=True)
 
         df_topk = df.head(request.k)
 
-
-
-        # -------- 保存 CSV --------
+        # Save CSV
         csv_path = os.path.join(out_dir, "analysis_results.csv")
         df.to_csv(csv_path, index=False, encoding="utf_8_sig")
 
-        # -------- 返回 JSON --------
+        # Return JSON
         return {
             "results"   : df_topk.to_dict(orient="records"),
             "csv_url"   : f"/static/{os.path.basename(out_dir)}/analysis_results.csv",
@@ -398,15 +396,15 @@ async def analyze_batch_stocks(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/stocks/list", summary="POST 获取股票列表（可选交易所）")
+@app.post("/stocks/list", summary="POST Get Stock List (Optional Exchange)")
 async def get_stock_list(req: StockListRequest):
     """
-    **exchange** 留空 = 全部；可选 SH / SZ / US
-    **refresh** 设 True 会忽略本地缓存，重新调用 AkShare。
+    **exchange** leave blank = all; optional SH / SZ / US
+    **refresh** set True will ignore local cache and call AkShare again.
     """
     df = _load_stocks(req.refresh)
 
-    # --- 按交易所过滤 ---
+    # Filter by exchange
     if req.exchange:
         ex = req.exchange.upper()
         if ex == "SH":
@@ -414,11 +412,11 @@ async def get_stock_list(req: StockListRequest):
         elif ex == "SZ":
             df = df[df["code"].str.startswith(("0", "3"))]
         elif ex == "US":
-            # 美股代码示例: 105.GOOG / 106.BABA / 105.AMZN
+            # US stock code example: 105.GOOG / 106.BABA / 105.AMZN
             df = df[df["code"].str.match(r"^\d{3}\.[A-Za-z]{3,5}$", na=False)]
         else:
-            raise HTTPException(400, "exchange 仅支持 SH/SZ/US")
-    # --- 返回 JSON（已自动将 NaN→None）---
+            raise HTTPException(400, "exchange only supports SH/SZ/US")
+    # Return JSON (NaN→None automatically)
     return {
         "count": len(df),
         "data": jsonable_encoder(df.to_dict("records"))
@@ -427,48 +425,48 @@ async def get_stock_list(req: StockListRequest):
 # 论坛相关的API端点
 @app.get("/api/forum/posts")
 async def get_forum_posts():
-    """获取所有论坛帖子"""
+    """Get all forum posts"""
     try:
         posts = db.get_all_posts()
         return {"posts": posts}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取帖子失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get posts: {str(e)}")
 
 @app.get("/api/forum/categories")
 async def get_forum_categories():
-    """获取所有论坛分类"""
+    """Get all forum categories"""
     try:
         categories = db.get_categories()
         return {"categories": categories}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取分类失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get categories: {str(e)}")
 
 @app.get("/api/forum/tags")
 async def get_forum_tags():
-    """获取所有论坛标签"""
+    """Get all forum tags"""
     try:
         tags = db.get_tags()
         return {"tags": tags}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取标签失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get tags: {str(e)}")
 
 @app.get("/api/forum/stats")
 async def get_forum_stats():
-    """获取论坛统计信息"""
+    """Get forum statistics"""
     try:
         stats = db.get_forum_stats()
         return stats
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get statistics: {str(e)}")
 
 @app.post("/api/forum/posts")
 async def create_forum_post(
     request: CreatePostRequest,
     current_user: Optional[Dict] = Depends(get_current_user)
 ):
-    """创建新帖子（需要登录）"""
+    """Create a new post (login required)"""
     if not current_user:
-        raise HTTPException(status_code=401, detail="请先登录后再发布帖子")
+        raise HTTPException(status_code=401, detail="Please login before posting")
     
     try:
         post_id = db.create_post_by_user_id(
@@ -478,21 +476,21 @@ async def create_forum_post(
             category=request.category,
             tags=request.tags
         )
-        return {"message": "帖子创建成功", "post_id": post_id}
+        return {"message": "Post created successfully", "post_id": post_id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"创建帖子失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create post: {str(e)}")
 
 @app.get("/api/forum/my-posts")
 async def get_my_posts(current_user: Optional[Dict] = Depends(get_current_user)):
-    """获取当前用户的帖子（需要登录）"""
+    """Get current user's posts (login required)"""
     if not current_user:
-        raise HTTPException(status_code=401, detail="请先登录")
+        raise HTTPException(status_code=401, detail="Please login first")
     
     try:
         posts = db.get_user_posts(current_user['id'])
         return {"posts": posts}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取用户帖子失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get user posts: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)

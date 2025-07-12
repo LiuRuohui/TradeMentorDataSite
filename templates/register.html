@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TradeMentor - 用户注册</title>
+    <title>TradeMentor - User Registration</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -119,50 +119,50 @@
 </head>
 <body>
     <div class="container">
-        <h2 class="section-title">注册</h2>
+        <h2 class="section-title">Register</h2>
         <div class="user-type-info">
-            <h4>选择您的身份类型：</h4>
+            <h4>Select your user type:</h4>
             <ul>
-                <li><strong>交易专家</strong> - 专业的技术分析能力</li>
-                <li><strong>股票新手</strong> - 刚开始学习投资</li>
-                <li><strong>资深投资者</strong> - 有丰富投资经验</li>
-                <li><strong>市场分析师</strong> - 专业市场分析</li>
-                <li><strong>风险管理师</strong> - 专注于风险控制</li>
+                <li><strong>Trading Expert</strong> - Professional technical analysis skills</li>
+                <li><strong>Stock Newbie</strong> - Just started learning to invest</li>
+                <li><strong>Senior Investor</strong> - Rich investment experience</li>
+                <li><strong>Market Analyst</strong> - Professional market analysis</li>
+                <li><strong>Risk Manager</strong> - Focus on risk control</li>
             </ul>
         </div>
         <form id="registerForm">
             <div class="form-group">
-                <label for="registerUsername">用户名</label>
+                <label for="registerUsername">Username</label>
                 <input type="text" id="registerUsername" name="username" required>
             </div>
             <div class="form-group">
-                <label for="registerEmail">邮箱（可选）</label>
+                <label for="registerEmail">Email (optional)</label>
                 <input type="email" id="registerEmail" name="email">
             </div>
             <div class="form-group">
-                <label for="registerPassword">密码</label>
+                <label for="registerPassword">Password</label>
                 <input type="password" id="registerPassword" name="password" required>
             </div>
             <div class="form-group">
-                <label for="userType">身份类型</label>
+                <label for="userType">User Type</label>
                 <select id="userType" name="user_type" required>
-                    <option value="">请选择身份类型</option>
-                    <option value="Trading Expert">交易专家</option>
-                    <option value="Stock Newbie">股票新手</option>
-                    <option value="Senior Investor">资深投资者</option>
-                    <option value="Market Analyst">市场分析师</option>
-                    <option value="Risk Manager">风险管理师</option>
+                    <option value="">Please select user type</option>
+                    <option value="Trading Expert">Trading Expert</option>
+                    <option value="Stock Newbie">Stock Newbie</option>
+                    <option value="Senior Investor">Senior Investor</option>
+                    <option value="Market Analyst">Market Analyst</option>
+                    <option value="Risk Manager">Risk Manager</option>
                 </select>
             </div>
-            <button type="submit" class="btn btn-primary">注册</button>
+            <button type="submit" class="btn btn-primary">Register</button>
             <div class="error-message" id="registerError"></div>
             <div class="success-message" id="registerSuccess"></div>
         </form>
         <div class="bottom-link">
-            已有账号？<a href="/login">去登录</a>
+            Already have an account? <a href="/login">Login</a>
         </div>
         <div class="bottom-link">
-            <a href="/">返回主页</a>
+            <a href="/">Back to Home</a>
         </div>
     </div>
     <script>
@@ -196,13 +196,13 @@
                 });
                 const result = await response.json();
                 if (response.ok) {
-                    showSuccess('registerSuccess', '注册成功！请登录');
+                    showSuccess('registerSuccess', 'Registration successful! Please login');
                     setTimeout(() => { window.location.href = '/login'; }, 1200);
                 } else {
-                    showError('registerError', result.detail || '注册失败');
+                    showError('registerError', result.detail || 'Registration failed');
                 }
             } catch (error) {
-                showError('registerError', '网络错误，请重试');
+                showError('registerError', 'Network error, please try again');
             }
         });
         // 检查是否已登录
