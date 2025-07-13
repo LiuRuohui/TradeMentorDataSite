@@ -268,13 +268,13 @@ async def analyze_single_stock(
 
         # Build DataFrame (for chart function)
         df = pd.DataFrame([{
-            "Code": request.stock_code,
-            "Name": request.stock_code,          # Query for Chinese name if needed
-            "Market Cap (Billion)": "N/A",
-            "Start Price": hist['close'].iloc[0],
-            "End Price": hist['close'].iloc[-1],
-            "Change (%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
-            "Score": score
+            "代码": request.stock_code,
+            "名称": request.stock_code,          # 若需中文名称，可自行查询
+            "总市值（亿元）": "N/A",
+            "起始日价（元）": hist['close'].iloc[0],
+            "截止日价（元）": hist['close'].iloc[-1],
+            "涨幅(%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
+            "得分": score
         }])
 
         # Async generate chart
@@ -335,14 +335,14 @@ async def analyze_batch_stocks(
 
             # Build DataFrame (for chart function)
             df = pd.DataFrame([{
-                "Code": code,
-                "Name": code,  # Query for Chinese name if needed
-                "Market Cap (Billion)": "N/A",
-                "Start Price": hist['close'].iloc[0],
-                "End Price": hist['close'].iloc[-1],
-                "Change (%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
-                "Score": score
-            }])
+            "代码": request.stock_code,
+            "名称": request.stock_code,          # 若需中文名称，可自行查询
+            "总市值（亿元）": "N/A",
+            "起始日价（元）": hist['close'].iloc[0],
+            "截止日价（元）": hist['close'].iloc[-1],
+            "涨幅(%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
+            "得分": score
+        }])
 
             # Output dir + async generate chart
             background_tasks.add_task(
@@ -357,14 +357,14 @@ async def analyze_batch_stocks(
             change_pct = (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100
 
             results.append({
-                "Code"       : code,
-                "Name"       : code,                   # Query for Chinese name if needed
-                "Market Cap (Billion)" : "N/A",
-                "Start Price": float(hist['close'].iloc[0]),
-                "End Price": float(hist['close'].iloc[-1]),
-                "Change (%)"    : round(change_pct, 2),
-                "Score"       : score,
-                "Exchange"     : "SH" if code.startswith("6") else "SZ",
+                "代码"       : code,
+                "名称"       : code,                   # 如需中文名可自行查表
+                "总市值（亿元）" : "N/A",
+                "起始日价（元）": float(hist['close'].iloc[0]),
+                "截止日价（元）": float(hist['close'].iloc[-1]),
+                "涨幅(%)"    : round(change_pct, 2),
+                "得分"       : score,
+                "交易所"     : "SH" if code.startswith("6") else "SZ",
             })
 
         if not results:
@@ -374,9 +374,9 @@ async def analyze_batch_stocks(
 
         # Sort & take top k
         if request.topgains:
-            df.sort_values(["Change (%)", "Code"], ascending=[False, True], inplace=True)
+            df.sort_values(["涨幅(%)", "代码"], ascending=[False, True], inplace=True)
         else:
-            df.sort_values(["Score", "Code"], ascending=[False, True], inplace=True)
+            df.sort_values(["得分", "代码"], ascending=[False, True], inplace=True)
 
         df_topk = df.head(request.k)
 
