@@ -335,8 +335,8 @@ async def analyze_batch_stocks(
 
             # Build DataFrame (for chart function)
             df = pd.DataFrame([{
-            "代码": request.stock_code,
-            "名称": request.stock_code,          # 若需中文名称，可自行查询
+            "代码": code,
+            "名称": code,          # 若需中文名称，可自行查询
             "总市值（亿元）": "N/A",
             "起始日价（元）": hist['close'].iloc[0],
             "截止日价（元）": hist['close'].iloc[-1],
