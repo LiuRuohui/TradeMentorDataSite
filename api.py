@@ -84,6 +84,10 @@ class CreatePostRequest(BaseModel):
     category: str
     tags: List[str]
 
+class CreateReplyRequest(BaseModel):
+    post_id: int
+    content: str
+
 # 全局变量
 output_dir = None
 
@@ -491,6 +495,46 @@ async def get_my_posts(current_user: Optional[Dict] = Depends(get_current_user))
         return {"posts": posts}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get user posts: {str(e)}")
+
+@app.get("/api/forum/posts/{post_id}")
+async def get_forum_post_detail(post_id: int):
+    """Get forum post detail by ID"""
+    try:
+        post = db.get_post_by_id(post_id)
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        return {"post": post}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get post detail: {str(e)}")
+
+@app.get("/api/forum/posts/{post_id}/replies")
+async def get_post_replies(post_id: int):
+    """获取某个帖子的所有评论"""
+    try:
+        replies = db.get_replies_by_post_id(post_id)
+        return {"replies": replies}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get replies: {str(e)}")
+
+@app.post("/api/forum/posts/{post_id}/replies")
+async def add_post_reply(post_id: int, request: CreateReplyRequest, current_user: Optional[Dict] = Depends(get_current_user)):
+    """添加评论（需登录）"""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Please login before commenting")
+    try:
+        reply_id = db.add_reply(post_id, current_user['id'], request.content)
+        return {"message": "Reply added", "reply_id": reply_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add reply: {str(e)}")
+
+@app.post("/api/forum/posts/{post_id}/like")
+async def like_post(post_id: int):
+    """给帖子点赞，返回最新点赞数"""
+    try:
+        likes = db.like_post(post_id)
+        return {"likes": likes}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to like post: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)

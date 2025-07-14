@@ -687,5 +687,70 @@ class ForumDatabase:
         conn.close()
         return posts
 
+    def get_post_by_id(self, post_id: int) -> dict:
+        """根据帖子ID获取帖子详情"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT 
+                p.id, p.title, p.content, p.views, p.likes, p.created_at,
+                u.username as author, u.avatar,
+                c.name as category,
+                GROUP_CONCAT(t.name) as tags
+            FROM posts p
+            JOIN users u ON p.author_id = u.id
+            JOIN categories c ON p.category_id = c.id
+            LEFT JOIN post_tags pt ON p.id = pt.post_id
+            LEFT JOIN tags t ON pt.tag_id = t.id
+            WHERE p.id = ?
+            GROUP BY p.id
+        ''', (post_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            post = dict(row)
+            post['tags'] = post['tags'].split(',') if post['tags'] else []
+            return post
+        return None
+
+    def get_replies_by_post_id(self, post_id: int) -> list:
+        """获取某个帖子的所有评论（按时间升序）"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT r.id, r.content, r.likes, r.created_at, u.username as author
+            FROM replies r
+            JOIN users u ON r.author_id = u.id
+            WHERE r.post_id = ?
+            ORDER BY r.created_at ASC
+        ''', (post_id,))
+        replies = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return replies
+
+    def add_reply(self, post_id: int, author_id: int, content: str) -> int:
+        """添加评论"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO replies (post_id, author_id, content)
+            VALUES (?, ?, ?)
+        ''', (post_id, author_id, content))
+        reply_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return reply_id
+
+    def like_post(self, post_id: int) -> int:
+        """给帖子点赞，返回最新点赞数"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE posts SET likes = likes + 1 WHERE id = ?', (post_id,))
+        conn.commit()
+        cursor.execute('SELECT likes FROM posts WHERE id = ?', (post_id,))
+        likes = cursor.fetchone()[0]
+        conn.close()
+        return likes
+
 # 创建全局数据库实例
 db = ForumDatabase() 

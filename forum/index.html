@@ -671,7 +671,7 @@
                 const replyCount = Math.floor(Math.random() * 50) + 5; // 模拟回复数
                 
                 postItem.innerHTML = `
-                    <a href="#" class="post-title">${post.title}</a>
+                    <a href="/forum/post.html?post_id=${post.id}" class="post-title">${post.title}</a>
                     <div class="post-meta">
                         <span>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -699,7 +699,6 @@
                         ${post.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
                     </div>
                 `;
-                
                 postList.appendChild(postItem);
             });
         }

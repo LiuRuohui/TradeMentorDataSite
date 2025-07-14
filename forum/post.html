@@ -355,24 +355,32 @@
 <body>
     <div class="container">
         <header class="header">
-            <h1 class="title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 5v14M5 12h14"></path>
-                </svg>
-                Create New Post
+            <h1 class="title" style="font-size:2.2rem;">
+                <span style="color:#1f2937;font-weight:800;">Post <span style='color:#3b82f6'>Details</span></span>
             </h1>
-            <a href="/forum/index.html" class="btn btn-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 12H5M12 19l-7-7 7-7"></path>
-                </svg>
-                Back to Forum
-            </a>
+            <a href="/forum/index.html" class="btn btn-primary" style="margin-top:1rem;float:right;">Back to Forum</a>
         </header>
 
-        <div class="success-message" id="successMessage">
-            Post created successfully! Redirecting to forum in 3 seconds...
+        <!-- 帖子详情卡片 -->
+        <div id="postDetail" style="display:none;">
+            <div id="detailCard" style="background:#fff;padding:2rem 2.5rem 1.5rem 2.5rem;border-radius:18px;box-shadow:0 2px 16px 0 rgba(59,130,246,0.07);margin-bottom:2rem;">
+                <h2 id="detailTitle" style="font-size:1.5rem;font-weight:800;margin-bottom:0.5rem;"></h2>
+                <div class="post-meta" id="detailMeta" style="color:#6b7280;font-size:1rem;margin-bottom:0.7rem;"></div>
+                <div class="post-tags" id="detailTags" style="margin-bottom:1.2rem;"></div>
+                <div class="post-content" id="detailContent" style="margin-bottom:1.5rem;font-size:1.08rem;line-height:1.9;"></div>
+            </div>
+            <button id="likeBtn" class="btn" style="background:#3b82f6;color:#fff;font-weight:600;margin-bottom:2rem;">
+                <span id="likeIcon">👍</span> Like <span id="likeCount">0</span>
+            </button>
+            <!-- 评论区卡片 -->
+            <div id="commentCard" style="background:#fff;padding:1.5rem 2rem 2rem 2rem;border-radius:14px;box-shadow:0 2px 12px 0 rgba(59,130,246,0.06);margin-bottom:2rem;">
+                <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:1.2rem;">Comments</h3>
+                <div id="repliesList" style="margin-bottom:1.2rem;"></div>
+                <textarea id="replyInput" class="form-input" style="width:100%;margin-bottom:0.7rem;resize:vertical;min-height:60px;" placeholder="Write a comment..."></textarea>
+                <button id="submitReplyBtn" class="btn btn-primary" style="width:160px;">Submit Comment</button>
+            </div>
         </div>
-
+        <!-- 发帖表单，详情页时隐藏 -->
         <form id="postForm" class="post-form">
             <div class="form-group">
                 <label class="form-label" for="postTitle">Title</label>
@@ -643,6 +651,88 @@
             updateCharCounts();
             updateTagCount();
         });
+
+        // 新增：判断URL参数，若有post_id则加载详情，否则显示发帖表单
+        function getQueryParam(name) {
+            const url = new URL(window.location.href);
+            return url.searchParams.get(name);
+        }
+        const postId = getQueryParam('post_id');
+        if (postId) {
+            document.getElementById('postForm').style.display = 'none';
+            document.getElementById('postDetail').style.display = 'block';
+            // 加载帖子详情
+            fetch(`/api/forum/posts/${postId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.post) throw new Error('Post not found');
+                    document.getElementById('detailTitle').textContent = data.post.title;
+                    document.getElementById('detailMeta').innerHTML =
+                        `Author: <b>${data.post.author}</b> &nbsp; | &nbsp; Category: <b>${data.post.category}</b> &nbsp; | &nbsp; Views: <b>${data.post.views}</b> &nbsp; | &nbsp; Created: <b>${data.post.created_at}</b>`;
+                    document.getElementById('detailTags').innerHTML = (data.post.tags||[]).map(tag => `<span class='tag' style='background:#e2e8f0;color:#2563eb;font-weight:600;margin-right:0.5rem;'>${tag}</span>`).join(' ');
+                    document.getElementById('detailContent').innerHTML = data.post.content.split('\n').map(line => `<p>${line}</p>`).join('');
+                    document.getElementById('likeCount').textContent = data.post.likes || 0;
+                })
+                .catch(err => {
+                    document.getElementById('detailTitle').textContent = 'Post not found';
+                    document.getElementById('detailMeta').textContent = '';
+                    document.getElementById('detailTags').textContent = '';
+                    document.getElementById('detailContent').textContent = err.message;
+                });
+            // 加载评论
+            function loadReplies() {
+                fetch(`/api/forum/posts/${postId}/replies`)
+                    .then(res => res.json())
+                    .then(data => {
+                        const replies = data.replies || [];
+                        const repliesList = document.getElementById('repliesList');
+                        if (replies.length === 0) {
+                            repliesList.innerHTML = '<div style="color:#6b7280;">No comments yet.</div>';
+                            return;
+                        }
+                        repliesList.innerHTML = replies.map(r =>
+                            `<div style='margin-bottom:1.1rem;padding-bottom:0.7rem;border-bottom:1px solid #f1f5f9;'>
+                                <b>${r.author}</b> <span style='color:#6b7280;font-size:0.95rem;'>${r.created_at}</span><br>
+                                <span style='font-size:1.05rem;'>${r.content}</span>
+                            </div>`
+                        ).join('');
+                    });
+            }
+            loadReplies();
+            // 提交评论
+            document.getElementById('submitReplyBtn').onclick = function() {
+                const content = document.getElementById('replyInput').value.trim();
+                if (!content) { alert('Comment cannot be empty!'); return; }
+                const token = localStorage.getItem('token');
+                fetch(`/api/forum/posts/${postId}/replies`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? 'Bearer ' + token : ''
+                    },
+                    body: JSON.stringify({ post_id: postId, content })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('replyInput').value = '';
+                    loadReplies();
+                })
+                .catch(() => alert('Failed to submit comment.'));
+            };
+            // 点赞功能
+            document.getElementById('likeBtn').onclick = function() {
+                fetch(`/api/forum/posts/${postId}/like`, { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (typeof data.likes !== 'undefined') {
+                            document.getElementById('likeCount').textContent = data.likes;
+                        }
+                    });
+            };
+        } else {
+            document.getElementById('postForm').style.display = 'block';
+            document.getElementById('postDetail').style.display = 'none';
+        }
     </script>
 </body>
 </html> 
