@@ -17,6 +17,7 @@ import akshare as ak
 from database import db  # 导入数据库模块
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
+from stock_analyze import get_exchange
 _STOCK_CACHE = "all_stocks.pkl"
 
 
@@ -248,6 +249,14 @@ async def analyze_single_stock(
     2. Return JSON immediately; chart is generated asynchronously as HTML, frontend can access via returned URL
     """
     try:
+        # 加载股票列表
+        all_stocks = _load_stocks(False)
+        # 查找名称
+        name_row = all_stocks[all_stocks["code"] == request.stock_code]
+        if not name_row.empty:
+            stock_name = name_row.iloc[0]["name"]
+        else:
+            stock_name = request.stock_code  # 查不到就用代码兜底
         # Calculate date range
         end_date  = request.end_date or datetime.now().strftime("%Y%m%d")
         start_date = (
@@ -273,8 +282,8 @@ async def analyze_single_stock(
         # Build DataFrame (for chart function)
         df = pd.DataFrame([{
             "代码": request.stock_code,
-            "名称": request.stock_code,          # 若需中文名称，可自行查询
-            "总市值（亿元）": "N/A",
+            "名称": stock_name,          # 若需中文名称，可自行查询
+            # "总市值（亿元）": "N/A",
             "起始日价（元）": hist['close'].iloc[0],
             "截止日价（元）": hist['close'].iloc[-1],
             "涨幅(%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
@@ -295,12 +304,13 @@ async def analyze_single_stock(
         # Result JSON
         return {
             "code": request.stock_code,
+            "name": stock_name,
             "start_price": round(hist['close'].iloc[0], 2),
             "end_price": round(hist['close'].iloc[-1], 2),
             "change_percent": round((hist['close'].iloc[-1] /
                                       hist['close'].iloc[0] - 1) * 100, 2),
             "score": score,
-            "chart_url": f"/static/{os.path.basename(out_dir)}/{request.stock_code}_analysis.html"
+            "chart_url": f"/static/{os.path.basename(out_dir)}/{request.stock_code}_{stock_name}_analysis.html"
         }
 
     except HTTPException as he:
@@ -314,6 +324,7 @@ async def analyze_batch_stocks(
     background_tasks: BackgroundTasks
 ):
     try:
+        all_stock = _load_stocks(False)
         # Calculate date range
         end_date  = request.end_date or datetime.now().strftime("%Y%m%d")
         start_date = (
@@ -326,6 +337,7 @@ async def analyze_batch_stocks(
         results: list[dict] = []
         out_dir = _make_output_dir()
         for code in set(request.stock_codes):          # Remove duplicates
+            stock_name = all_stock[all_stock["code"] == code].iloc[0]["name"]
             hist = get_historical_data(code, start_date, end_date,
                                        debug=request.debug)
             if hist.empty or len(hist) < 15:           # Skip if data too short
@@ -340,8 +352,7 @@ async def analyze_batch_stocks(
             # Build DataFrame (for chart function)
             df = pd.DataFrame([{
             "代码": code,
-            "名称": code,          # 若需中文名称，可自行查询
-            "总市值（亿元）": "N/A",
+            "名称": stock_name,          # 若需中文名称，可自行查询
             "起始日价（元）": hist['close'].iloc[0],
             "截止日价（元）": hist['close'].iloc[-1],
             "涨幅(%)": (hist['close'].iloc[-1] / hist['close'].iloc[0] - 1) * 100,
@@ -362,13 +373,12 @@ async def analyze_batch_stocks(
 
             results.append({
                 "代码"       : code,
-                "名称"       : code,                   # 如需中文名可自行查表
-                "总市值（亿元）" : "N/A",
+                "名称"       : stock_name,                   # 如需中文名可自行查表
                 "起始日价（元）": float(hist['close'].iloc[0]),
                 "截止日价（元）": float(hist['close'].iloc[-1]),
                 "涨幅(%)"    : round(change_pct, 2),
                 "得分"       : score,
-                "交易所"     : "SH" if code.startswith("6") else "SZ",
+                "交易所"     : get_exchange(code),
             })
 
         if not results:

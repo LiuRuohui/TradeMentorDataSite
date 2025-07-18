@@ -101,6 +101,16 @@ def set_plot_style() -> None:
     plt.rcParams['axes.labelsize'] = 16
     plt.rcParams['axes.labelweight'] = 'bold'
 
+def get_exchange(code: str) -> str:
+    if code.startswith("6"):
+        return "SH"
+    elif code.startswith("0") or code.startswith("3"):
+        return "SZ"
+    elif "." in code:  # 例如 105.GOOG、106.BABA
+        return "US"
+    else:
+        return "OTHER"
+
 def get_historical_data(stock_code: str, start_date: str, end_date: str, debug: bool = False) -> pd.DataFrame:
     """
     获取指定股票的历史数据
@@ -588,7 +598,7 @@ def analyze_stock_wrapper(args: Tuple[str, str, str, str, Optional[pd.DataFrame]
         return {
             '代码': stock_code,
             '名称': stock_name,
-            '总市值（亿元）': market_cap,
+            # '总市值（亿元）': market_cap,
             '起始日价（元）': start_price,
             '截止日价（元）': latest_price,
             '交易所': 'SH' if stock_code.startswith('6') else 'SZ',
@@ -620,7 +630,7 @@ def generate_stock_charts(
             if not ind:
                 logger.debug(f"股票 {code} {name} 的技术指标计算失败，跳过分析")
                 continue
-            
+
             # ======================
             # 专业级布局配置
             # ======================
@@ -641,7 +651,7 @@ def generate_stock_charts(
                     'KDJ指标分析',   # 第2行右
                     'RSI强弱指标',    # 第3行左
                     '量价关系分析',    # 第3行右
-                    '价格趋势线',     # 第4行左
+                    '价格趋势线',     # 第4行左FF
                     '波动率分析'      # 第4行右
                 ),
                 row_heights=[0.5, 0.2, 0.2, 0.2]
@@ -652,11 +662,11 @@ def generate_stock_charts(
             # ======================
             summary_text = (
                 f"◇{code} {name}◇ | "
-                f"起始价：{stock['起始日价（元）']:.2f}元 | "
-                f"最新价：{stock['截止日价（元）']:.2f}元 | "
-                f"区间涨幅：{stock['涨幅(%)']:.2f}% | "
-                f"市值规模：{stock['总市值（亿元）']}亿 | "
-                f"综合评分：{stock['得分']:.2f}"
+                f"Start Price：{stock['起始日价（元）']:.2f}Yuan | "
+                f"Newest Price：{stock['截止日价（元）']:.2f}Yuan | "
+                f"Range Increase：{stock['涨幅(%)']:.2f}% | "
+                # f"市值规模：{stock['总市值（亿元）']}亿 | "
+                f"Score：{stock['得分']:.2f}"
             )
 
             # ======================
@@ -672,7 +682,7 @@ def generate_stock_charts(
                 close=hist['close'],
                 increasing_line_color='#E74C3C',  # 专业红
                 decreasing_line_color='#2ECC71',  # 专业绿
-                name='价格走势',
+                name='Price Trend',
                 customdata=np.stack((
                     hist.index.strftime('%Y-%m-%d'),
                     hist['open'],
@@ -810,7 +820,7 @@ def generate_stock_charts(
                 x=hist.index,
                 y=ind['macd'],
                 marker_color=['#2ecc71' if v <0 else '#e74c3c' for v in ind['macd']],
-                name='MACD柱',
+                name='MACD Histogram',
                 showlegend=False,
                 customdata=np.stack((
                     hist.index.strftime('%Y-%m-%d'),
@@ -1006,7 +1016,7 @@ def generate_stock_charts(
                 x=hist.index,
                 y=hist['volume'],
                 marker_color=vol_colors,
-                name='成交量',
+                name='Trade Volume',
                 customdata=np.stack((
                     hist.index.strftime('%Y-%m-%d'),
                     hist['open'],
@@ -1031,7 +1041,7 @@ def generate_stock_charts(
                 x=hist.index,
                 y=ind['volume_ma5'],
                 line=dict(color='#F39C12', width=1.2),
-                name='成交量MA5',
+                name='Trade Volume MA5',
                 customdata=np.stack((
                     hist.index.strftime('%Y-%m-%d'),
                     hist['open'],
@@ -1058,7 +1068,7 @@ def generate_stock_charts(
                 x=hist.index,
                 y=hist['close'],
                 line=dict(color='#2C3E50', width=1.5),
-                name='收盘价',
+                name='Closing Price',
                 customdata=np.stack((
                     hist.index.strftime('%Y-%m-%d'),
                     hist['open'],
@@ -1085,7 +1095,7 @@ def generate_stock_charts(
                 x=hist.index,
                 y=hist['close'].pct_change().rolling(5).std(),
                 line=dict(color='#E67E22', width=1.2),
-                name='波动率',
+                name='Volatility',
                 customdata=np.stack((
                     hist.index.strftime('%Y-%m-%d'),
                     hist['open'],
@@ -1172,9 +1182,9 @@ def generate_stock_charts(
             with open(html_path, 'w', encoding='utf-8') as f:
                 html_content = fig.to_html(
                     include_plotlyjs='cdn',
-                    config={'scrollZoom': True}
+                    config={'scrollZoom': True},
+                    full_html=True
                 )
-                
                 # 添加自定义JavaScript代码
                 custom_js = """
                 <script>
@@ -1184,16 +1194,16 @@ def generate_stock_charts(
                         controlPanel.id = 'control-panel';
                         controlPanel.style.cssText = 'position:fixed;top:20px;right:20px;background:white;padding:15px;border:1px solid #ccc;border-radius:5px;box-shadow:2px 2px 10px rgba(0,0,0,0.1);z-index:1000;';
                         controlPanel.innerHTML = `
-                            <h4 style="margin-top:0;color:#2C3E50;">分析设置</h4>
-                            <div style="margin-bottom:10px;">
-                                <label for="days-input" style="margin-right:10px;">前后天数:</label>
+                            <h4 style="margin-top:0;color:#2C3E50;">Analysis Settings</h4>
+                            <div style="margin-bottom:10px;width:220px;">
+                                <label for="days-input" style="margin-right:10px;">Days Range:</label>
                                 <input type="number" id="days-input" value="3" min="0" max="10" style="width:60px;padding:2px;">
-                                <small style="display:block;margin-top:3px;color:#666;">设置点击时显示前后n天的数据</small>
+                                <small style="display:block;margin-top:3px;color:#666;">Set n days of data to display when clicking</small>
                             </div>
-                            <div style="margin-bottom:10px;">
-                                <label for="debate-round-input" style="margin-right:10px;">辩论轮数:</label>
+                            <div style="margin-bottom:10px;width:220px;">
+                                <label for="debate-round-input" style="margin-right:10px;">Debate Rounds:</label>
                                 <input type="number" id="debate-round-input" value="2" min="1" max="5" style="width:60px;padding:2px;">
-                                <small style="display:block;margin-top:3px;color:#666;">设置AI智能体辩论的轮数</small>
+                                <small style="display:block;margin-top:3px;color:#666;">Set number of debate rounds for AI agents</small>
                             </div>
                         `;
                         document.body.appendChild(controlPanel);
@@ -1257,13 +1267,13 @@ def generate_stock_charts(
                             
                             // 显示加载状态
                             analysisBtn.disabled = true;
-                            analysisBtn.textContent = '分析中...';
+                            analysisBtn.textContent = 'Analyzing...';
                             analysisBtn.style.background = '#95A5A6';
                             
                             // 获取当前选中数据点的历史数据
                             var currentData = window.currentAnalysisData;
                             if (!currentData) {
-                                console.error('没有可用的分析数据');
+                                console.error('No analysis data available');
                                 return;
                             }
                             
@@ -1274,13 +1284,13 @@ def generate_stock_charts(
                             analysisResult.innerHTML = `
                                 <div style="background:#f8f9fa;border-radius:5px;padding:15px;margin-top:10px;">
                                     <h4 style="margin-top:0;color:#2C3E50;border-bottom:1px solid #dee2e6;padding-bottom:8px;">
-                                        🤖 AI多智能体分析进行中 (${debateRounds}轮辩论)
+                                        🤖 Multi-Agent Analysis (${debateRounds} rounds)
                                     </h4>
                                     <div id="analysis-stream" style="background:white;padding:15px;border-radius:3px;border:1px solid #dee2e6;min-height:150px;max-height:400px;overflow-y:auto;">
-                                        <div class="status-message" style="color:#666;font-style:italic;">正在连接分析服务...</div>
+                                        <div class="status-message" style="color:#666;font-style:italic;width:200px;">Connecting to analysis service...</div>
                                     </div>
                                     <div style="margin-top:10px;font-size:12px;color:#666;">
-                                        💡 提示: 多个AI智能体将进行${debateRounds}轮协作分析，请耐心等待完整结果
+                                        💡 Tip: ${debateRounds} rounds of collaborative analysis in progress
                                     </div>
                                 </div>
                             `;
@@ -1318,14 +1328,14 @@ def generate_stock_charts(
                             requestData.push({
                                 "debate_round": debateRounds,
                                 "selected_date": currentData.selectedDate,
-                                "selected_data": currentData.selectedDataType || "K线"
+                                "selected_data": currentData.selectedDataType || "Candlestick"
                             });
                             
                             // 调试：打印发送的数据
                             console.log('发送智能分析数据:', requestData);
                             
                             // 使用fetch发起POST请求启动SSE流
-                            fetch('http://localhost:8000/api/v1/debate/stream', {
+                            fetch('http://121.36.226.166:8000/api/v1/debate/stream', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -1348,12 +1358,12 @@ def generate_stock_charts(
                                         if (done) {
                                             // 流结束
                                             analysisBtn.disabled = false;
-                                            analysisBtn.textContent = '智能分析';
+                                            analysisBtn.textContent = 'Intelligent Analysis';
                                             analysisBtn.style.background = '#3498DB';
                                             
                                             var completeDiv = document.createElement('div');
                                             completeDiv.style.cssText = 'margin:10px 0;padding:10px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:5px;color:#38a169;font-weight:bold;';
-                                            completeDiv.innerHTML = '✅ 分析完成';
+                                            completeDiv.innerHTML = '✅ Analysis Completed';
                                             streamDiv.appendChild(completeDiv);
                                             streamDiv.scrollTop = streamDiv.scrollHeight;
                                             return;
@@ -1372,7 +1382,7 @@ def generate_stock_charts(
                                                         handleStreamEvent(eventData, streamDiv);
                                                     }
                                                 } catch (e) {
-                                                    console.error('解析SSE数据失败:', e);
+                                                    console.error('Failed to parse SSE data:', e);
                                                 }
                                             }
                                         });
@@ -1385,20 +1395,20 @@ def generate_stock_charts(
                                 return processStream();
                             })
                             .catch(error => {
-                                console.error('智能分析请求失败:', error);
+                                console.error('Intelligent analysis request failed:', error);
                                 
                                 // 恢复按钮状态
                                 analysisBtn.disabled = false;
-                                analysisBtn.textContent = '智能分析';
+                                analysisBtn.textContent = 'Intelligent Analysis';
                                 analysisBtn.style.background = '#3498DB';
                                 
                                 // 显示错误信息
                                 var errorContent = `
                                     <div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:5px;padding:15px;margin-top:10px;">
-                                        <h4 style="margin-top:0;color:#E53E3E;">❌ 分析失败</h4>
-                                        <p style="margin:5px 0;color:#666;">无法连接到智能分析服务</p>
-                                        <p style="margin:5px 0;font-size:12px;color:#999;">错误详情: ${error.message}</p>
-                                        <p style="margin:5px 0;font-size:11px;color:#999;">请确保API服务正在运行在 http://localhost:8000</p>
+                                        <h4 style="margin-top:0;color:#E53E3E;">❌ Analysis Failed</h4>
+                                        <p style="margin:5px 0;color:#666;">Failed to connect to AI analysis service</p>
+                                        <p style="margin:5px 0;font-size:12px;color:#999;">Error details: ${error.message}</p>
+                                        <p style="margin:5px 0;font-size:11px;color:#999;">Please ensure API service is running at http://121.36.226.166:8000</p>
                                     </div>
                                 `;
                                 analysisResult.innerHTML = errorContent;
@@ -1650,25 +1660,25 @@ def generate_stock_charts(
                         // 辅助函数
                         function getEventTitle(eventType, icon, agentRole = '') {
                             var titles = {
-                                'workflow_start': '工作流启动',
-                                'workflow_complete': '工作流完成', 
-                                'workflow_error': '工作流错误',
-                                'workflow_result': '最终结果',
-                                'prepare_inputs_start': '准备输入数据',
-                                'prepare_inputs_complete': '输入数据就绪',
-                                'analysis_round_start': '开始分析轮次',
-                                'analysis_round_complete': '分析轮次完成',
-                                'decision_criteria_check': '检查决策条件',
-                                'decision_criteria_result': '决策条件结果',
-                                'finalize_decision_start': '开始最终决策',
-                                'finalize_decision_complete': '最终决策完成',
-                                'agent_task_start': '智能体任务开始',
-                                'agent_task_complete': '智能体任务完成',
-                                'llm_call_start': 'LLM调用开始',
-                                'llm_call_complete': 'LLM分析完成',
-                                'llm_call_error': 'LLM调用错误',
-                                'connection_established': '连接已建立',
-                                'stream_error': '流处理错误'
+                                'workflow_start': 'Workflow Started',
+                                'workflow_complete': 'Workflow Completed', 
+                                'workflow_error': 'Workflow Error',
+                                'workflow_result': 'Final Result',
+                                'prepare_inputs_start': 'Preparing Input Data',
+                                'prepare_inputs_complete': 'Input Data Ready',
+                                'analysis_round_start': 'Analysis Round Started',
+                                'analysis_round_complete': 'Analysis Round Completed',
+                                'decision_criteria_check': 'Checking Decision Criteria',
+                                'decision_criteria_result': 'Decision Criteria Result',
+                                'finalize_decision_start': 'Finalizing Decision',
+                                'finalize_decision_complete': 'Decision Finalized',
+                                'agent_task_start': 'Agent Task Started',
+                                'agent_task_complete': 'Agent Task Completed',
+                                'llm_call_start': 'LLM Call Started',
+                                'llm_call_complete': 'LLM Analysis Completed',
+                                'llm_call_error': 'LLM Call Error',
+                                'connection_established': 'Connection Established',
+                                'stream_error': 'Stream Processing Error'
                             };
                             
                             var baseTitle = titles[eventType] || eventType.replace(/_/g, ' ');
@@ -1720,7 +1730,7 @@ def generate_stock_charts(
                             roundHeader.onclick = function() { toggleRound(roundId); };
                             roundHeader.innerHTML = `
                                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                                    <div style="font-weight:bold;color:#ef6c00;font-size:15px;">🔄 第${roundNumber}轮分析 - 进行中</div>
+                                    <div style="font-weight:bold;color:#ef6c00;font-size:15px;">🔄 Round ${roundNumber} - In Progress</div>
                                     <span id="toggle-${roundId}" style="font-weight:bold;color:#ef6c00;">▼</span>
                                 </div>
                             `;
@@ -1743,21 +1753,21 @@ def generate_stock_charts(
                         function handleRoundComplete(eventData) {
                             if (currentRoundContainer) {
                                 var roundNumber = eventData.data.round || eventData.data.round_number || '?';
-                                var summary = eventData.data.summary || eventData.data.result || eventData.data.analysis || '轮次分析完成';
+                                var summary = eventData.data.summary || eventData.data.result || eventData.data.analysis || 'Round analysis completed';
                                 
                                 // 更新轮次标题
                                 var header = currentRoundContainer.querySelector('div');
                                 if (header) {
                                     header.innerHTML = `
                                         <div style="display:flex;justify-content:space-between;align-items:center;">
-                                            <div style="font-weight:bold;color:#388e3c;font-size:15px;">✅ 第${roundNumber}轮分析 - 已完成</div>
+                                            <div style="font-weight:bold;color:#388e3c;font-size:15px;">✅ Round ${roundNumber} - Completed</div>
                                             <span id="toggle-${currentRoundContainer.id}" style="font-weight:bold;color:#388e3c;">▲</span>
                                         </div>
                                     `;
                                 }
                                 
                                 // 添加详细的轮次结果
-                                if (summary && summary !== '轮次分析完成') {
+                                if (summary && summary !== 'Round analysis completed') {
                                     var contentId = generateContentId();
                                     var summaryDiv = document.createElement('div');
                                     summaryDiv.style.cssText = 'margin-top:10px;padding:12px;background:rgba(76,175,80,0.1);border-radius:6px;border-left:4px solid #4caf50;';
@@ -1770,7 +1780,7 @@ def generate_stock_charts(
                                         var preview = summary.length > 150 ? summary.substring(0, 150) + '...' : summary;
                                         summaryDiv.innerHTML = `
                                             <div onclick="toggleContent('${contentId}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                                                <div style="font-weight:bold;color:#388e3c;">📋 轮次分析结果</div>
+                                                <div style="font-weight:bold;color:#388e3c;">📋 Round Analysis Results</div>
                                                 <span id="toggle-${contentId}" style="font-weight:bold;color:#388e3c;">▼</span>
                                             </div>
                                             <div id="preview-${contentId}" style="font-size:12px;line-height:1.4;color:#666;">
@@ -1783,7 +1793,7 @@ def generate_stock_charts(
                                     } else {
                                         // 简单总结
                                         summaryDiv.innerHTML = `
-                                            <div style="font-weight:bold;color:#388e3c;margin-bottom:5px;">📋 轮次总结</div>
+                                            <div style="font-weight:bold;color:#388e3c;margin-bottom:5px;">📋 Round Summary</div>
                                             <div style="font-size:13px;line-height:1.4;color:#666;">${summary}</div>
                                         `;
                                     }
@@ -1834,44 +1844,45 @@ def generate_stock_charts(
                             messageDiv.style.boxShadow = '0 4px 12px rgba(76,175,80,0.15)';
                             
                             // 提取关键信息
-                            var recommendation = data.recommendation || '无推荐';
+                            var recommendation = data.recommendation || 'No recommendation';
                             var confidence = data.final_confidence || 0;
-                            var message = data.message || '最终交易决策已确定';
+                            var message = data.message || 'Final trading decision determined';
                             var totalRounds = data.total_rounds || 0;
                             var averageScore = data.average_score || 0;
                             var allScores = data.all_scores || [];
-                            
+
                             // 获取操作类型和颜色
                             var actionColor = '#4caf50'; // 默认绿色
                             var actionIcon = '📊';
                             if (recommendation.includes('买入') || recommendation.includes('BUY')) {
-                                actionColor = '#f44336'; // 红色
+                                actionColor = '#f44336'; // Red
                                 actionIcon = '📈';
                             } else if (recommendation.includes('卖出') || recommendation.includes('SELL')) {
-                                actionColor = '#2196f3'; // 蓝色
+                                actionColor = '#2196f3'; // Blue
                                 actionIcon = '📉';
                             } else if (recommendation.includes('持有') || recommendation.includes('HOLD')) {
-                                actionColor = '#ff9800'; // 橙色
+                                actionColor = '#ff9800'; // Orange
                                 actionIcon = '📊';
                             }
-                            
+
                             // 信心等级
                             var confidenceLevel = '';
                             var confidenceColor = '';
                             if (confidence >= 8) {
-                                confidenceLevel = '高';
+                                confidenceLevel = 'High';
                                 confidenceColor = '#4caf50';
                             } else if (confidence >= 6) {
-                                confidenceLevel = '中';
+                                confidenceLevel = 'Medium';
                                 confidenceColor = '#ff9800';
                             } else {
-                                confidenceLevel = '低';
+                                confidenceLevel = 'Low';
                                 confidenceColor = '#f44336';
                             }
                             
                             messageDiv.innerHTML = `
                                 <div onclick="toggleAnalysisResult('${contentId}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                                    <div style="font-weight:bold;color:#388e3c;font-size:16px;">🎯 最终投资决策</div>
+                                    <div style="font-weight:bold;color:#388e3c;font-size:16px;">🎯 Final Investment Decision</div>
+                                    <div style="font-weight:bold;color:#388e3c;font-size:16px;">🎯 Final Investment Decision</div>
                                     <span id="toggle-${contentId}" style="font-weight:bold;color:#388e3c;">▼</span>
                                 </div>
                                 
@@ -1880,18 +1891,18 @@ def generate_stock_charts(
                                     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:15px;">
                                         <div style="text-align:center;padding:10px;background:rgba(76,175,80,0.1);border-radius:6px;">
                                             <div style="font-size:18px;color:${actionColor};font-weight:bold;">${actionIcon}</div>
-                                            <div style="font-size:13px;color:#666;margin:3px 0;">操作建议</div>
+                                            <div style="font-size:13px;color:#666;margin:3px 0;">Recommendation</div>
                                             <div style="font-size:14px;font-weight:bold;color:${actionColor};">${recommendation}</div>
                                         </div>
                                         <div style="text-align:center;padding:10px;background:rgba(76,175,80,0.1);border-radius:6px;">
                                             <div style="font-size:18px;color:${confidenceColor};font-weight:bold;">${confidence}</div>
-                                            <div style="font-size:13px;color:#666;margin:3px 0;">信心指数</div>
-                                            <div style="font-size:12px;color:${confidenceColor};">${confidenceLevel}信心 (${confidence}/10)</div>
+                                            <div style="font-size:13px;color:#666;margin:3px 0;">Confidence Index</div>
+                                            <div style="font-size:12px;color:${confidenceColor};">${confidenceLevel} confidence (${confidence}/10)</div>
                                         </div>
                                         <div style="text-align:center;padding:10px;background:rgba(76,175,80,0.1);border-radius:6px;">
                                             <div style="font-size:18px;color:#388e3c;font-weight:bold;">${totalRounds}</div>
-                                            <div style="font-size:13px;color:#666;margin:3px 0;">分析轮数</div>
-                                            <div style="font-size:12px;color:#666;">平均分: ${averageScore}</div>
+                                            <div style="font-size:13px;color:#666;margin:3px 0;">Analysis Rounds</div>
+                                            <div style="font-size:12px;color:#666;">Average Score: ${averageScore}</div>
                                         </div>
                                     </div>
                                     <div style="text-align:center;color:#666;font-size:13px;font-style:italic;">${message}</div>
@@ -1899,19 +1910,18 @@ def generate_stock_charts(
                                 
                                 <!-- 详细分析内容 -->
                                 <div id="full-${contentId}" style="display:none;margin-top:15px;background:rgba(255,255,255,0.95);padding:20px;border-radius:8px;border:1px solid #c8e6c9;max-height:500px;overflow-y:auto;">
-                                    ${formatFinalDecisionContent(data.final_decision || '暂无详细分析')}
+                                    ${formatFinalDecisionContent(data.final_decision || 'No detailed analysis content available')}
                                     
                                     <!-- 技术数据 -->
                                     <div style="margin-top:20px;padding:15px;background:rgba(76,175,80,0.05);border-radius:6px;border-left:4px solid #4caf50;">
-                                        <h4 style="margin:0 0 10px 0;color:#388e3c;">📊 分析数据</h4>
-                                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;">
-                                            <div><strong>总轮数:</strong> ${totalRounds}</div>
-                                            <div><strong>平均评分:</strong> ${averageScore}</div>
-                                            <div><strong>所有评分:</strong> [${allScores.join(', ')}]</div>
-                                            <div><strong>数据来源:</strong> ${data.source || 'unknown'}</div>
-                                        </div>
-                                        <div style="margin-top:8px;font-size:11px;color:#666;">
-                                            <strong>时间戳:</strong> ${data.timestamp ? new Date(data.timestamp * 1000).toLocaleString() : '未知'}
+                                        <h4 style="margin:0 0 10px 0;color:#388e3c;">📊 Analysis Data</h4>
+                                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;width:300px;">
+                                            <div><strong>Total Rounds:</strong> ${totalRounds}</div>
+                                            <div><strong>Average Score:</strong> ${averageScore}</div>
+                                            <div><strong>All Scores:</strong> [${allScores.join(', ')}]</div>
+                                            <div><strong>Data Source:</strong> ${data.source || 'unknown'}</div>
+                                            <div style="margin-top:8px;font-size:11px;color:#666;">
+                                                <strong>Timestamp:</strong> ${data.timestamp ? new Date(data.timestamp * 1000).toLocaleString() : 'Unknown'}
                                         </div>
                                     </div>
                                 </div>
@@ -1920,7 +1930,7 @@ def generate_stock_charts(
                         
                         // 格式化最终决策内容
                         function formatFinalDecisionContent(content) {
-                            if (!content) return '<p style="color:#666;font-style:italic;">暂无详细分析内容</p>';
+                            if (!content) return '<p style="color:#666;font-style:italic;">No detailed analysis content available</p>';
                             
                             // 将Markdown格式转换为HTML
                             var formatted = content
@@ -1942,7 +1952,7 @@ def generate_stock_charts(
                         
                         // 格式化Agent分析内容
                         function formatAgentAnalysis(content) {
-                            if (!content) return '<p style="color:#666;font-style:italic;">暂无分析内容</p>';
+                            if (!content) return '<p style="color:#666;font-style:italic;">No analysis content available</p>';
                             
                             // 将Markdown格式转换为HTML，针对Agent分析优化
                             var formatted = content
@@ -1978,7 +1988,7 @@ def generate_stock_charts(
                             formatted = formatted.replace(/Conviction Level: (\\w+)/g, function(match, level) {
                                 var color = level === 'High' ? '#4caf50' : level === 'Medium' ? '#ff9800' : '#f44336';
                                 return `<div style="margin:10px 0;padding:8px 12px;background:rgba(33,150,243,0.1);border-radius:6px;border-left:4px solid #2196f3;">
-                                    <strong style="color:#1976d2;">信心等级:</strong> 
+                                    <strong style="color:#1976d2;">Confidence Level:</strong> 
                                     <span style="color:${color};font-weight:bold;margin-left:8px;">${level}</span>
                                 </div>`;
                             });
@@ -2031,11 +2041,11 @@ def generate_stock_charts(
                             }
                             
                             // 更新数据面板内容
-                            var dataType = pointData[16] || '未知';
+                            var dataType = pointData[16] || 'Unknown';
                             var content = `
                                 <div style="position:sticky;top:0;background:white;border-bottom:1px solid #eee;padding-bottom:8px;margin-bottom:10px;">
-                                    <h3 style="margin:0;color:#2C3E50;">数据详情 (前后${nDays}天)</h3>
-                                    <p style="margin:5px 0;font-weight:bold;color:#E74C3C;">当前选中: ${dataType} - ${pointData[0]}</p>
+                                    <h3 style="margin:0;color:#2C3E50;">Data Details (±${nDays} days)</h3>
+                                    <p style="margin:5px 0;font-weight:bold;color:#E74C3C;">Selected: ${dataType} - ${pointData[0]}</p>
                                 </div>
                             `;
                             
@@ -2097,24 +2107,24 @@ def generate_stock_charts(
                                     <div class="${dayClass}" style="${dayStyle}">
                                         <div onclick="toggleDataDetails('${dayId}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
                                             <h5 style="margin:0;color:#2C3E50;font-weight:bold;">
-                                                ${dayData[0]} ${isCurrentDay ? '(选中日期)' : ''}
+                                                ${dayData[0]} ${isCurrentDay ? '(Selected Date)' : ''}
                                             </h5>
                                             <span id="toggle-${dayId}" style="font-weight:bold;color:#666;">${isExpanded ? '▼' : '▶'}</span>
                                         </div>
                                         <div id="details-${dayId}" style="display:${isExpanded ? 'block' : 'none'};margin-top:8px;">
                                             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:8px;">
-                                                <span style="padding:4px;background:rgba(52,152,219,0.1);border-radius:3px;">开盘: ¥${parseFloat(dayData[1]).toFixed(2)}</span>
-                                                <span style="padding:4px;background:rgba(231,76,60,0.1);border-radius:3px;">最高: ¥${parseFloat(dayData[2]).toFixed(2)}</span>
-                                                <span style="padding:4px;background:rgba(46,204,113,0.1);border-radius:3px;">最低: ¥${parseFloat(dayData[3]).toFixed(2)}</span>
-                                                <span style="padding:4px;background:rgba(155,89,182,0.1);border-radius:3px;">收盘: ¥${parseFloat(dayData[4]).toFixed(2)}</span>
+                                                <span style="padding:4px;background:rgba(52,152,219,0.1);border-radius:3px;">Open: ¥${parseFloat(dayData[1]).toFixed(2)}</span>
+                                                <span style="padding:4px;background:rgba(231,76,60,0.1);border-radius:3px;">High: ¥${parseFloat(dayData[2]).toFixed(2)}</span>
+                                                <span style="padding:4px;background:rgba(46,204,113,0.1);border-radius:3px;">Low: ¥${parseFloat(dayData[3]).toFixed(2)}</span>
+                                                <span style="padding:4px;background:rgba(155,89,182,0.1);border-radius:3px;">Close: ¥${parseFloat(dayData[4]).toFixed(2)}</span>
                                             </div>
                                             <div style="margin-bottom:8px;font-size:11px;color:#666;padding:4px;background:rgba(149,165,166,0.1);border-radius:3px;">
-                                                <span>成交量: ${parseInt(dayData[5]).toLocaleString()}</span>
+                                                <span>Volume: ${parseInt(dayData[5]).toLocaleString()}</span>
                                             </div>
                                             
                                             ${isCurrentDay || !isCurrentDay ? `
                                                 <div style="border-top:1px solid #ddd;padding-top:8px;">
-                                                    <h6 style="margin:0 0 8px 0;color:#2C3E50;">技术指标</h6>
+                                                    <h6 style="margin:0 0 8px 0;color:#2C3E50;">Technical Indicators</h6>
                                                     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11px;">
                                                         <div style="padding:4px;background:rgba(243,156,18,0.1);border-radius:3px;">
                                                             <div>MA5: ¥${parseFloat(dayData[6]).toFixed(2)}</div>
@@ -2145,7 +2155,7 @@ def generate_stock_charts(
                             // 添加智能分析结果显示区域
                             content += `
                                 <div id="analysis-result" style="margin-top:15px;">
-                                    <!-- 智能分析结果将在这里显示 -->
+                                    <!-- Intelligent analysis results will be displayed here -->
                                 </div>
                             `;
                             
@@ -2154,11 +2164,11 @@ def generate_stock_charts(
                                 <div style="text-align:right;margin-top:15px;position:sticky;bottom:0;background:white;padding-top:8px;border-top:1px solid #eee;">
                                     <button id="analysis-btn" onclick="performSmartAnalysis()" 
                                             style="padding:8px 15px;border:none;background:#3498DB;color:white;border-radius:3px;cursor:pointer;margin-right:10px;">
-                                        🤖 智能分析
+                                        🤖 Intelligent Analysis
                                     </button>
                                     <button onclick="closeDataPanel()" 
                                             style="padding:8px 15px;border:none;background:#E74C3C;color:white;border-radius:3px;cursor:pointer;">
-                                        关闭
+                                        Close
                                     </button>
                                 </div>
                             `;
