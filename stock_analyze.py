@@ -1334,7 +1334,7 @@ def generate_stock_charts(
                             // 调试：打印发送的数据
                             console.log('发送智能分析数据:', requestData);
                             
-                            // 使用fetch发起POST请求启动SSE流
+                            // 使用fetch发起POST请求启动SSE流 change to localhost:8000 if you want to run locally
                             fetch('http://121.36.226.166:8000/api/v1/debate/stream', {
                                 method: 'POST',
                                 headers: {
@@ -1402,7 +1402,7 @@ def generate_stock_charts(
                                 analysisBtn.textContent = 'Intelligent Analysis';
                                 analysisBtn.style.background = '#3498DB';
                                 
-                                // 显示错误信息
+                                // 显示错误信息  change to localhost:8000 if you want to run locally
                                 var errorContent = `
                                     <div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:5px;padding:15px;margin-top:10px;">
                                         <h4 style="margin-top:0;color:#E53E3E;">❌ Analysis Failed</h4>

@@ -127,7 +127,8 @@ document.addEventListener('DOMContentLoaded', function() {
         </button>
       </div>
       <div class="popup-content">
-        <iframe src="http://localhost:5001" class="embedded-iframe" title="Embedded Service"></iframe>
+        //change to localhost:5001 when you need to run locally
+        <iframe src="http://121.36.266.166:5001" class="embedded-iframe" title="Embedded Service"></iframe>
       </div>
     </div>
   `;

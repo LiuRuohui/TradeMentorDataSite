@@ -131,4 +131,5 @@ def submit_user_info():
     return jsonify({"status": "success", "message": "用户信息已提交"})
 # Start the flask application
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    # app.run(debug=True, port=5001)
+    app.run(host="0.0.0.0", debug = True, port=5001)
