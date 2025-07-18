@@ -415,6 +415,7 @@
                 <div class="tag-input" id="tagInput">
                     <input type="text" placeholder="Type a tag and press Enter" id="tagField">
                 </div>
+                <div class="info-message" style="color:#2563eb;font-size:0.92rem;margin-top:0.3rem;background:rgba(37,99,235,0.07);border-radius:6px;padding:0.4rem 0.7rem 0.4rem 0.7rem;">⚠️ 只是在输入框里输入内容但没有按 Enter，不会被计入标签集合。</div>
                 <div class="error-message" id="tagError">Please add at least one tag</div>
             </div>
 
@@ -624,24 +625,42 @@
                     });
 
                     if (response.ok) {
-                        const result = await response.json();
+                        let result;
+                        try {
+                            result = await response.json();
+                        } catch (jsonErr) {
+                            // 解析JSON失败，但后端已写入
+                            alert('帖子可能已发布成功，但服务器响应异常，请刷新论坛页面确认。');
+                            console.error('解析服务器响应JSON失败:', jsonErr);
+                            return;
+                        }
                         console.log('Post created successfully:', result);
-
                         // 显示成功消息
                         const successMessage = document.getElementById('successMessage');
-                        successMessage.style.display = 'block';
-
+                        if(successMessage) successMessage.style.display = 'block';
                         // 3秒后返回论坛
                         setTimeout(() => {
                             window.location.href = '/forum/index.html';
                         }, 3000);
                     } else {
-                        const errorData = await response.json();
-                        alert(`发布失败: ${errorData.detail || '未知错误'}`);
+                        // 非200响应，优先尝试解析json
+                        let errorDetail = '未知错误';
+                        try {
+                            const errorData = await response.json();
+                            errorDetail = errorData.detail || errorDetail;
+                        } catch (jsonErr) {
+                            errorDetail = '服务器响应异常';
+                        }
+                        alert(`发布失败: ${errorDetail}`);
                     }
                 } catch (error) {
+                    // 区分网络错误和JSON解析错误
+                    if (error instanceof TypeError) {
+                        alert('发布失败，请检查网络连接');
+                    } else {
+                        alert('发布失败，发生未知错误。帖子可能已发布成功，请刷新论坛页面确认。');
+                    }
                     console.error('发布帖子失败:', error);
-                    alert('发布失败，请检查网络连接');
                 }
             }
         });

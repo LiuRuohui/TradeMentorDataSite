@@ -432,6 +432,10 @@ class ForumDatabase:
         for row in cursor.fetchall():
             post = dict(row)
             post['tags'] = post['tags'].split(',') if post['tags'] else []
+            # 查询评论数
+            cursor2 = conn.cursor()
+            cursor2.execute('SELECT COUNT(*) FROM replies WHERE post_id = ?', (post['id'],))
+            post['replies_count'] = cursor2.fetchone()[0]
             posts.append(post)
         
         conn.close()
