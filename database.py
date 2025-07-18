@@ -379,18 +379,23 @@ class ForumDatabase:
         for post_data in sample_posts:
             # 获取作者ID
             cursor.execute('SELECT id FROM users WHERE username = ?', (post_data['author'],))
-            author_id = cursor.fetchone()['id']
-            
+            result = cursor.fetchone()
+            if result:
+                author_id = result['id']
+            else:
+                return  # 查不到作者直接跳出
             # 获取分类ID
             cursor.execute('SELECT id FROM categories WHERE name = ?', (post_data['category'],))
-            category_id = cursor.fetchone()['id']
-            
+            category_result = cursor.fetchone()
+            if category_result:
+                category_id = category_result['id']
+            else:
+                return  # 查不到分类直接跳出
             # 插入帖子
             cursor.execute('''
-                INSERT INTO posts (title, content, author_id, category_id, views, likes)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (post_data['title'], post_data['content'], author_id, category_id, 
-                  post_data['views'], post_data['likes']))
+                INSERT INTO posts (title, content, author_id, category_id, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (post_data['title'], post_data['content'], author_id, category_id, post_data['created_at']))
             
             post_id = cursor.lastrowid
             

@@ -575,14 +575,75 @@
             if (!postList || !allPosts.length) return;
 
             postList.innerHTML = '';
-            
-            allPosts.forEach(post => {
+
+            // 计算互动数（评论数+点赞数）并排序
+            const postsWithInteraction = allPosts.map(post => ({
+                ...post,
+                interaction: (post.replies_count || 0) + (post.likes || 0)
+            }));
+            postsWithInteraction.sort((a, b) => b.interaction - a.interaction);
+            const hotPosts = postsWithInteraction.slice(0, 5);
+            const otherPosts = postsWithInteraction.slice(5);
+
+            // 渲染热门post
+            const hotTitle = document.createElement('h3');
+            hotTitle.textContent = '🔥 Hot Posts';
+            hotTitle.style.color = 'var(--primary-color)';
+            hotTitle.style.margin = '1rem 0 0.5rem 0';
+            postList.appendChild(hotTitle);
+            hotPosts.forEach(post => {
                 const postItem = document.createElement('li');
                 postItem.className = 'post-item';
-                
                 const timeAgo = getTimeAgo(post.created_at);
                 const replyCount = post.replies_count !== undefined ? post.replies_count : 0;
-                
+                postItem.innerHTML = `
+                    <a href="/forum/post.html?post_id=${post.id}" class="post-title">${post.title}</a>
+                    <div class="post-meta">
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            ${post.author}
+                        </span>
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            ${replyCount} Replies
+                        </span>
+                        <span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            ${post.views} Views
+                        </span>
+                        <span class="post-time">${timeAgo}</span>
+                    </div>
+                    <div class="post-tags">
+                        ${(Array.isArray(post.tags) ? post.tags : []).map(tag => `<span class="tag">${tag}</span>`).join('')}
+                    </div>
+                `;
+                postList.appendChild(postItem);
+            });
+
+            // 渲染分隔线
+            const divider = document.createElement('hr');
+            divider.style.margin = '2rem 0 1rem 0';
+            postList.appendChild(divider);
+
+            // 渲染其他帖子
+            const otherTitle = document.createElement('h3');
+            otherTitle.textContent = 'All Posts';
+            otherTitle.style.color = 'var(--secondary-color)';
+            otherTitle.style.margin = '0 0 0.5rem 0';
+            postList.appendChild(otherTitle);
+            otherPosts.forEach(post => {
+                const postItem = document.createElement('li');
+                postItem.className = 'post-item';
+                const timeAgo = getTimeAgo(post.created_at);
+                const replyCount = post.replies_count !== undefined ? post.replies_count : 0;
                 postItem.innerHTML = `
                     <a href="/forum/post.html?post_id=${post.id}" class="post-title">${post.title}</a>
                     <div class="post-meta">
