@@ -1264,21 +1264,21 @@
               </div>
               
               <p style="margin: 0 0 1rem; color: var(--text-primary); font-size: 1.1rem; font-weight: 500;">
-                ${result.passed ? '恭喜通过考试！' : '未达到及格线，请继续努力'}
+                ${result.passed ? 'Congratulations！You pass the exam!' : 'Failed, Try harder!'}
               </p>
               
               <div style="margin-bottom: 1.5rem;">
-                <p style="margin: 0.5rem 0; color: var(--text-secondary);">得分: ${result.score} / ${result.total_score}</p>
-                <p style="margin: 0.5rem 0; color: var(--text-secondary);">及格分数: 60分</p>
+                <p style="margin: 0.5rem 0; color: var(--text-secondary);">Score: ${result.score} / ${result.total_score}</p>
+                <p style="margin: 0.5rem 0; color: var(--text-secondary);">Pass Mark: 60 Points</p>
               </div>
               
               <div style="background: ${result.passed ? '#10b981' : '#ef4444'}; color: #fff; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem; font-weight: 600; margin-bottom: 1.5rem;">
-                ${result.passed ? '✓ 考试通过' : '✗ 考试未通过'}
+                ${result.passed ? '✓ Success' : '✗ Failed'}
               </div>
               
               <div style="display: flex; gap: 1rem;">
-                <button onclick="closeExamResult()" style="flex: 1; background: var(--text-secondary); color: #fff; border: none; border-radius: 8px; padding: 0.75rem; font-weight: 600; cursor: pointer;">关闭</button>
-                <button onclick="returnToExamList()" style="flex: 1; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 0.75rem; font-weight: 600; cursor: pointer;">返回考试列表</button>
+                <button onclick="closeExamResult()" style="flex: 1; background: var(--text-secondary); color: #fff; border: none; border-radius: 8px; padding: 0.75rem; font-weight: 600; cursor: pointer;">Close</button>
+                <button onclick="returnToExamList()" style="flex: 1; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 0.75rem; font-weight: 600; cursor: pointer;">Return Back to Exam List</button>
               </div>
             </div>
           </div>
