@@ -428,6 +428,26 @@
       .error {
         border-left: 4px solid var(--danger);
       }
+
+      /* ---------- Exam styles ---------- */
+      .exam-nav-btn:hover {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--text-primary) !important;
+      }
+
+      .question-card label:hover {
+        background: rgba(59, 130, 246, 0.05);
+      }
+
+      .exam-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow-hover);
+      }
+
+      .record-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow-hover);
+      }
     </style>
   </head>
   <script src="popup-integration.js"></script>
@@ -455,6 +475,7 @@
         <li><button id="nav-single" class="active">Single Stock</button></li>
         <li><button id="nav-batch">Batch Analysis</button></li>
         <li><button id="nav-list">Stock List</button></li>
+        <li><button id="nav-exam">Exam Test</button></li>
         <li><button id="nav-forum" onclick="window.location.href='/forum/index.html'">Forum</button></li>
       </ul>
       <!-- 新增文档按钮 -->
@@ -578,6 +599,42 @@
           </div>
         </div>
       </section>
+
+      <!-- ===== 考试功能 ===== -->
+      <section id="section-exam" style="display:none">
+        <!-- 考试导航标签 -->
+        <div class="card" style="padding: 0; overflow: hidden;">
+          <div style="display: flex; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);">
+            <button id="exam-nav-list" class="exam-nav-btn active" style="flex: 1; padding: 1rem; background: none; border: none; cursor: pointer; font-weight: 600; color: var(--text-primary); border-bottom: 3px solid var(--primary);">Exam List</button>
+            <button id="exam-nav-take" class="exam-nav-btn" style="flex: 1; padding: 1rem; background: none; border: none; cursor: pointer; font-weight: 600; color: var(--text-secondary); border-bottom: 3px solid transparent;">Take Exam</button>
+            <button id="exam-nav-record" class="exam-nav-btn" style="flex: 1; padding: 1rem; background: none; border: none; cursor: pointer; font-weight: 600; color: var(--text-secondary); border-bottom: 3px solid transparent;">Exam Record</button>
+          </div>
+        </div>
+
+        <!-- 考试列表 -->
+        <div id="exam-list-section" class="card">
+          <h3>Available Exams</h3>
+          <div id="exam-list-content">
+            <!-- 考试卡片将通过JavaScript动态加载 -->
+          </div>
+        </div>
+
+        <!-- 进行考试 -->
+        <div id="exam-take-section" class="card" style="display:none;">
+          <h3 id="exam-title">Exam Processing</h3>
+          <div id="exam-questions">
+            <!-- 考试题目将通过JavaScript动态加载 -->
+          </div>
+        </div>
+
+        <!-- 考试记录 -->
+        <div id="exam-record-section" class="card" style="display:none;">
+          <h3>Exam Records</h3>
+          <div id="exam-records-content">
+            <!-- 考试记录将通过JavaScript动态加载 -->
+          </div>
+        </div>
+      </section>
     </main>
 
     <script>
@@ -657,11 +714,13 @@
         single: document.getElementById("section-single"),
         batch: document.getElementById("section-batch"),
         list: document.getElementById("section-list"),
+        exam: document.getElementById("section-exam"),
       };
       const navButtons = {
         single: document.getElementById("nav-single"),
         batch: document.getElementById("nav-batch"),
         list: document.getElementById("nav-list"),
+        exam: document.getElementById("nav-exam"),
       };
       function show(tab) {
         Object.keys(sections).forEach((k) => {
@@ -672,6 +731,7 @@
       navButtons.single.onclick = () => show("single");
       navButtons.batch.onclick = () => show("batch");
       navButtons.list.onclick = () => show("list");
+      navButtons.exam.onclick = () => show("exam");
 
       /* ================= 单只分析 ================= */
       const fSingle = document.getElementById("form-single");
@@ -912,6 +972,449 @@
       updateTopAuthBar();
       // 隐藏侧边栏登录/注册按钮
       document.getElementById('login-prompt').style.display = 'none';
+
+      /* ================= 考试功能 ================= */
+      // 考试导航
+      const examNavButtons = {
+        list: document.getElementById("exam-nav-list"),
+        take: document.getElementById("exam-nav-take"),
+        record: document.getElementById("exam-nav-record"),
+      };
+      const examSections = {
+        list: document.getElementById("exam-list-section"),
+        take: document.getElementById("exam-take-section"),
+        record: document.getElementById("exam-record-section"),
+      };
+
+      function showExamTab(tab) {
+        Object.keys(examSections).forEach((k) => {
+          examSections[k].style.display = k === tab ? "block" : "none";
+          examNavButtons[k].classList.toggle("active", k === tab);
+          examNavButtons[k].style.color = k === tab ? "var(--text-primary)" : "var(--text-secondary)";
+          examNavButtons[k].style.borderBottom = k === tab ? "3px solid var(--primary)" : "3px solid transparent";
+        });
+        
+        // 加载对应数据
+        if (tab === "list") {
+          loadExamList();
+        } else if (tab === "record") {
+          loadExamRecords();
+        }
+      }
+
+      examNavButtons.list.onclick = () => showExamTab("list");
+      examNavButtons.take.onclick = () => showExamTab("take");
+      examNavButtons.record.onclick = () => showExamTab("record");
+
+      // 加载考试列表
+      async function loadExamList() {
+        try {
+          const response = await fetch('/api/exams');
+          const data = await response.json();
+          
+          if (data.success) {
+            const examListContent = document.getElementById('exam-list-content');
+            examListContent.innerHTML = '';
+            
+            data.data.forEach(exam => {
+              const examCard = createExamCard(exam);
+              examListContent.appendChild(examCard);
+            });
+          }
+        } catch (error) {
+          console.error('Error loading exams:', error);
+        }
+      }
+
+      // 创建考试卡片
+      function createExamCard(exam) {
+        const card = document.createElement('div');
+        card.className = 'exam-card';
+        card.style.cssText = 'background: #fff; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color); box-shadow: var(--card-shadow);';
+        
+        const createdDate = new Date(exam.created_at).toLocaleDateString('zh-CN');
+        
+        card.innerHTML = `
+          <h4 style="margin: 0 0 0.5rem; color: var(--text-primary); font-size: 1.1rem; font-weight: 600;">${exam.title}</h4>
+          <p style="margin: 0 0 1rem; color: var(--text-secondary); font-size: 0.9rem;">${exam.description}</p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">❓</span>
+              <span style="font-size: 0.9rem; color: var(--text-secondary);">Questions: ${exam.total_questions}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">🏆</span>
+              <span style="font-size: 0.9rem; color: var(--text-secondary);">Passing Score: ${exam.passing_score}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">⏰</span>
+              <span style="font-size: 0.9rem; color: var(--text-secondary);">Time Limit: ${exam.time_limit} min</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">📅</span>
+              <span style="font-size: 0.9rem; color: var(--text-secondary);">Created: ${createdDate}</span>
+            </div>
+          </div>
+          <button class="start-exam-btn" data-exam-id="${exam.id}" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: var(--transition);">▶ Start Exam</button>
+        `;
+        
+        // 添加开始考试事件
+        const startBtn = card.querySelector('.start-exam-btn');
+        startBtn.onclick = () => startExam(exam.id);
+        
+        return card;
+      }
+
+      // 开始考试
+      async function startExam(examId) {
+        try {
+          // 获取考试信息
+          const examResponse = await fetch(`/api/exams/${examId}`);
+          const examData = await examResponse.json();
+          
+          if (examData.success) {
+            // 设置考试标题
+            document.getElementById('exam-title').textContent = examData.data.title;
+          }
+          
+          const response = await fetch(`/api/exams/${examId}/questions`);
+          const data = await response.json();
+          
+          if (data.success) {
+            loadExamQuestions(examId, data.data);
+            showExamTab("take");
+          }
+        } catch (error) {
+          console.error('Error loading exam questions:', error);
+        }
+      }
+
+      // 加载考试题目
+      function loadExamQuestions(examId, questions) {
+        const examQuestionsDiv = document.getElementById('exam-questions');
+        examQuestionsDiv.innerHTML = '';
+        
+        questions.forEach((question, index) => {
+          const questionCard = document.createElement('div');
+          questionCard.className = 'question-card';
+          questionCard.style.cssText = 'background: #fff; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border-color); box-shadow: var(--card-shadow);';
+          
+          questionCard.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+              <span style="background: var(--primary); color: #fff; width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem;">${index + 1}</span>
+              <h4 style="margin: 0; color: var(--text-primary); font-size: 1rem; font-weight: 600;">${question.question_text}</h4>
+            </div>
+            <p style="margin: 0 0 1rem; color: var(--text-secondary); font-size: 0.9rem;">Score: ${question.score} point</p>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: var(--transition);">
+                <input type="radio" name="q${question.question_order}" value="A" style="margin: 0;">
+                <span style="color: var(--text-primary);">A. ${question.option_a}</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: var(--transition);">
+                <input type="radio" name="q${question.question_order}" value="B" style="margin: 0;">
+                <span style="color: var(--text-primary);">B. ${question.option_b}</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: var(--transition);">
+                <input type="radio" name="q${question.question_order}" value="C" style="margin: 0;">
+                <span style="color: var(--text-primary);">C. ${question.option_c}</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: var(--transition);">
+                <input type="radio" name="q${question.question_order}" value="D" style="margin: 0;">
+                <span style="color: var(--text-primary);">D. ${question.option_d}</span>
+              </label>
+            </div>
+          `;
+          
+          examQuestionsDiv.appendChild(questionCard);
+        });
+        
+        // 添加提交按钮
+        const submitDiv = document.createElement('div');
+        submitDiv.style.cssText = 'text-align: center; margin-top: 2rem;';
+        submitDiv.innerHTML = `
+          <button id="submit-exam-btn" data-exam-id="${examId}" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: #fff; border: none; border-radius: 8px; padding: 1rem 2rem; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: var(--transition);">Submit Exam</button>
+        `;
+        examQuestionsDiv.appendChild(submitDiv);
+        
+        // 添加提交事件
+        const submitBtn = submitDiv.querySelector('#submit-exam-btn');
+        submitBtn.onclick = () => submitExam(examId);
+      }
+
+      // 提交考试
+      async function submitExam(examId) {
+        // 收集答案
+        const answers = {};
+        const questions = document.querySelectorAll('input[type="radio"]:checked');
+        questions.forEach(q => {
+          answers[q.name] = q.value;
+        });
+
+        // 检查是否所有题目都已回答
+        const totalQuestions = document.querySelectorAll('.question-card').length;
+        if (Object.keys(answers).length < totalQuestions) {
+          alert('请回答所有题目后再提交！');
+          return;
+        }
+
+        try {
+          const user = JSON.parse(localStorage.getItem('user') || '{}');
+          const response = await fetch('/api/exams/submit', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              exam_id: examId,
+              answers: answers,
+              user_id: user.id || 1  // 默认用户ID
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            showExamResult(data.data);
+          }
+        } catch (error) {
+          console.error('Error submitting exam:', error);
+          alert('提交考试失败，请重试！');
+        }
+      }
+
+      // 加载考试记录
+      async function loadExamRecords() {
+        try {
+          const user = JSON.parse(localStorage.getItem('user') || '{}');
+          const userId = user.id || 1;
+          
+          const response = await fetch(`/api/exam-records/${userId}`);
+          const data = await response.json();
+          
+          if (data.success) {
+            const recordsContent = document.getElementById('exam-records-content');
+            recordsContent.innerHTML = '';
+            
+            if (data.data.length === 0) {
+              recordsContent.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">暂无考试记录</p>';
+              return;
+            }
+            
+            data.data.forEach(record => {
+              const recordCard = createRecordCard(record);
+              recordsContent.appendChild(recordCard);
+            });
+          }
+        } catch (error) {
+          console.error('Error loading exam records:', error);
+        }
+      }
+
+      // 创建考试记录卡片
+      function createRecordCard(record) {
+        const card = document.createElement('div');
+        card.className = 'record-card';
+        card.style.cssText = 'background: #fff; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color); box-shadow: var(--card-shadow);';
+        
+        const endDate = new Date(record.end_time).toLocaleDateString('zh-CN');
+        const statusColor = record.passed ? '#10b981' : '#ef4444';
+        const statusText = record.passed ? 'Passed' : 'Failed';
+        
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h4 style="margin: 0; color: var(--text-primary); font-size: 1.1rem; font-weight: 600;">${record.title}</h4>
+            <span style="background: ${statusColor}; color: #fff; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">${statusText}</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">📊</span>
+              <span style="font-size: 0.9rem; color: var(--text-secondary);">Score: ${record.score}/${record.total_score}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">📈</span>
+              <span style="font-size: 0.9rem; color: var(--text-secondary);">Percentage: ${record.percentage}%</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">📅</span>
+              <span style="font-size: 0.9rem; color: var(--text-secondary);">Date: ${endDate}</span>
+            </div>
+          </div>
+          <button class="view-result-btn" data-record-id="${record.id}" style="background: var(--primary); color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.9rem; cursor: pointer; transition: var(--transition);">View Details</button>
+        `;
+        
+        // 添加View Details按钮点击事件
+        const viewBtn = card.querySelector('.view-result-btn');
+        viewBtn.onclick = () => viewExamRecordDetail(record.id);
+        
+        return card;
+      }
+
+      // 显示考试结果
+      function showExamResult(result) {
+        const resultHtml = `
+          <div id="exam-result-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+            <div style="background: #fff; border-radius: 16px; padding: 2rem; max-width: 500px; width: 90%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h3 style="margin: 0; color: var(--text-primary); font-size: 1.5rem; font-weight: 600;">Exam Result</h3>
+                <button onclick="closeExamResult()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">×</button>
+              </div>
+              
+              <div style="width: 120px; height: 120px; border-radius: 50%; margin: 0 auto 1.5rem; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 700; color: #fff; background: ${result.passed ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'};">
+                ${result.percentage}%
+              </div>
+              
+              <p style="margin: 0 0 1rem; color: var(--text-primary); font-size: 1.1rem; font-weight: 500;">
+                ${result.passed ? '恭喜通过考试！' : '未达到及格线，请继续努力'}
+              </p>
+              
+              <div style="margin-bottom: 1.5rem;">
+                <p style="margin: 0.5rem 0; color: var(--text-secondary);">得分: ${result.score} / ${result.total_score}</p>
+                <p style="margin: 0.5rem 0; color: var(--text-secondary);">及格分数: 60分</p>
+              </div>
+              
+              <div style="background: ${result.passed ? '#10b981' : '#ef4444'}; color: #fff; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem; font-weight: 600; margin-bottom: 1.5rem;">
+                ${result.passed ? '✓ 考试通过' : '✗ 考试未通过'}
+              </div>
+              
+              <div style="display: flex; gap: 1rem;">
+                <button onclick="closeExamResult()" style="flex: 1; background: var(--text-secondary); color: #fff; border: none; border-radius: 8px; padding: 0.75rem; font-weight: 600; cursor: pointer;">关闭</button>
+                <button onclick="returnToExamList()" style="flex: 1; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 0.75rem; font-weight: 600; cursor: pointer;">返回考试列表</button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', resultHtml);
+      }
+
+      // 关闭考试结果
+      function closeExamResult() {
+        const modal = document.getElementById('exam-result-modal');
+        if (modal) {
+          modal.remove();
+        }
+      }
+
+      // 返回考试列表
+      function returnToExamList() {
+        closeExamResult();
+        showExamTab("list");
+      }
+
+      // 页面加载时初始化考试列表
+      document.addEventListener('DOMContentLoaded', function() {
+        loadExamList();
+      });
+
+      // 查看考试记录详情
+      async function viewExamRecordDetail(recordId) {
+        try {
+          const user = JSON.parse(localStorage.getItem('user') || '{}');
+          const userId = user.id || 1;
+          
+          const response = await fetch(`/api/exam-records/${userId}/${recordId}`);
+          const data = await response.json();
+          
+          if (data.success) {
+            showExamRecordDetail(data.data);
+          }
+        } catch (error) {
+          console.error('Error loading exam record detail:', error);
+          alert('加载考试记录详情失败，请重试！');
+        }
+      }
+
+      // 显示考试记录详情
+      function showExamRecordDetail(record) {
+        const detailHtml = `
+          <div id="exam-detail-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+            <div style="background: #fff; border-radius: 16px; padding: 2rem; max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h3 style="margin: 0; color: var(--text-primary); font-size: 1.5rem; font-weight: 600;">Exam Record Details</h3>
+                <button onclick="closeExamDetail()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">×</button>
+              </div>
+              
+              <div style="margin-bottom: 2rem;">
+                <h4 style="margin: 0 0 1rem; color: var(--text-primary); font-size: 1.2rem; font-weight: 600;">${record.title}</h4>
+                <p style="margin: 0 0 1rem; color: var(--text-secondary);">${record.description}</p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.2rem;">📊</span>
+                    <span style="font-size: 0.9rem; color: var(--text-secondary);">Score: ${record.score}/${record.total_score}</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.2rem;">📈</span>
+                    <span style="font-size: 0.9rem; color: var(--text-secondary);">Percentage: ${record.percentage}%</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🏆</span>
+                    <span style="font-size: 0.9rem; color: var(--text-secondary);">Passing Score: ${record.passing_score}%</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="background: ${record.passed ? '#10b981' : '#ef4444'}; color: #fff; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+                      ${record.passed ? 'Passed' : 'Failed'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div style="margin-bottom: 2rem;">
+                <h5 style="margin: 0 0 1rem; color: var(--text-primary); font-size: 1rem; font-weight: 600;">Your Answers:</h5>
+                <div id="answers-detail">
+                  ${generateAnswersDetail(record.answers)}
+                </div>
+              </div>
+              
+              <div style="text-align: center;">
+                <button onclick="closeExamDetail()" style="background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-weight: 600; cursor: pointer;">Close</button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', detailHtml);
+      }
+
+      // 生成答案详情HTML
+      function generateAnswersDetail(answers) {
+        if (!answers) return '<p style="color: var(--text-secondary);">No answer details available.</p>';
+        
+        let html = '';
+        Object.keys(answers).forEach((questionKey, index) => {
+          const answer = answers[questionKey];
+          const isCorrect = answer.is_correct;
+          const statusColor = isCorrect ? '#10b981' : '#ef4444';
+          const statusIcon = isCorrect ? '✓' : '✗';
+          
+          html += `
+            <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid ${statusColor};">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-weight: 600; color: var(--text-primary);">Question ${index + 1}</span>
+                <span style="background: ${statusColor}; color: #fff; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">
+                  ${statusIcon} ${isCorrect ? 'Correct' : 'Incorrect'}
+                </span>
+              </div>
+              <div style="margin-bottom: 0.5rem;">
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">Your Answer: ${answer.user_answer || 'Not answered'}</span>
+              </div>
+              <div>
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">Correct Answer: ${answer.correct_answer}</span>
+              </div>
+            </div>
+          `;
+        });
+        
+        return html;
+      }
+
+      // 关闭考试详情
+      function closeExamDetail() {
+        const modal = document.getElementById('exam-detail-modal');
+        if (modal) {
+          modal.remove();
+        }
+      }
     </script>
     <script>
       // 修复View Docs按钮点击无效问题

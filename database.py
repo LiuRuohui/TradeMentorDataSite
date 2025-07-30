@@ -4,6 +4,7 @@ import hashlib
 import secrets
 from datetime import datetime
 from typing import List, Dict, Optional
+import json
 
 class ForumDatabase:
     def __init__(self, db_path: str = "forum.db"):
@@ -113,11 +114,62 @@ class ForumDatabase:
             )
         ''')
         
+        # 创建考试表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS exams (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT,
+                total_questions INTEGER NOT NULL,
+                passing_score INTEGER NOT NULL,
+                time_limit INTEGER DEFAULT 30,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT 1
+            )
+        ''')
+        
+        # 创建考试题目表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS exam_questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                exam_id INTEGER NOT NULL,
+                question_text TEXT NOT NULL,
+                option_a TEXT NOT NULL,
+                option_b TEXT NOT NULL,
+                option_c TEXT NOT NULL,
+                option_d TEXT NOT NULL,
+                correct_answer TEXT NOT NULL,
+                score INTEGER DEFAULT 1,
+                question_order INTEGER NOT NULL,
+                FOREIGN KEY (exam_id) REFERENCES exams (id)
+            )
+        ''')
+        
+        # 创建考试记录表
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS exam_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                exam_id INTEGER NOT NULL,
+                score INTEGER NOT NULL,
+                total_score INTEGER NOT NULL,
+                percentage INTEGER NOT NULL,
+                passed BOOLEAN NOT NULL,
+                answers TEXT,  -- JSON格式存储答案
+                start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                end_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id),
+                FOREIGN KEY (exam_id) REFERENCES exams (id)
+            )
+        ''')
+        
         conn.commit()
         conn.close()
         
         # 插入初始数据
         self.insert_initial_data()
+        # 插入示例考试数据
+        self.insert_sample_exams()
     
     def hash_password(self, password: str) -> str:
         """密码哈希"""
@@ -354,7 +406,8 @@ class ForumDatabase:
                 'category': 'Technical Analysis',
                 'tags': ['Technical Analysis', 'MACD', 'RSI', 'Bollinger Bands'],
                 'views': 156,
-                'likes': 23
+                'likes': 23,
+                'created_at': '2025-01-15 10:30:00'
             },
             {
                 'title': 'Beginner\'s Guide: Understanding P/E Ratio and Financial Statements',
@@ -363,7 +416,8 @@ class ForumDatabase:
                 'category': 'Fundamental Analysis',
                 'tags': ['Fundamentals', 'P/E Ratio', 'Financial Analysis', 'Beginner'],
                 'views': 98,
-                'likes': 15
+                'likes': 15,
+                'created_at': '2025-01-16 14:20:00'
             },
             {
                 'title': 'My Value Investing Strategy: Finding Undervalued Stocks',
@@ -372,7 +426,8 @@ class ForumDatabase:
                 'category': 'Investment Strategy',
                 'tags': ['Value Investing', 'Stock Selection', 'Investment Strategy'],
                 'views': 245,
-                'likes': 31
+                'likes': 31,
+                'created_at': '2025-01-17 09:15:00'
             }
         ]
         
@@ -751,15 +806,449 @@ class ForumDatabase:
         return reply_id
 
     def like_post(self, post_id: int) -> int:
-        """给帖子点赞，返回最新点赞数"""
+        """点赞帖子"""
         conn = self.get_connection()
         cursor = conn.cursor()
-        cursor.execute('UPDATE posts SET likes = likes + 1 WHERE id = ?', (post_id,))
-        conn.commit()
-        cursor.execute('SELECT likes FROM posts WHERE id = ?', (post_id,))
-        likes = cursor.fetchone()[0]
-        conn.close()
-        return likes
+        
+        try:
+            cursor.execute('UPDATE posts SET likes = likes + 1 WHERE id = ?', (post_id,))
+            conn.commit()
+            
+            cursor.execute('SELECT likes FROM posts WHERE id = ?', (post_id,))
+            result = cursor.fetchone()
+            return result['likes'] if result else 0
+        except Exception as e:
+            print(f"Error liking post: {e}")
+            return 0
+        finally:
+            conn.close()
+    
+    # ================= 考试相关方法 =================
+    
+    def get_all_exams(self) -> List[Dict]:
+        """获取所有考试列表"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                SELECT id, title, description, total_questions, passing_score, time_limit, created_at
+                FROM exams 
+                WHERE is_active = 1 
+                ORDER BY created_at DESC
+            ''')
+            exams = []
+            for row in cursor.fetchall():
+                exams.append(dict(row))
+            return exams
+        except Exception as e:
+            print(f"Error getting exams: {e}")
+            return []
+        finally:
+            conn.close()
+    
+    def get_exam_by_id(self, exam_id: int) -> Optional[Dict]:
+        """根据ID获取考试详情"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                SELECT id, title, description, total_questions, passing_score, time_limit, created_at
+                FROM exams 
+                WHERE id = ? AND is_active = 1
+            ''', (exam_id,))
+            result = cursor.fetchone()
+            return dict(result) if result else None
+        except Exception as e:
+            print(f"Error getting exam: {e}")
+            return None
+        finally:
+            conn.close()
+    
+    def get_exam_questions(self, exam_id: int) -> List[Dict]:
+        """获取考试题目"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                SELECT id, question_text, option_a, option_b, option_c, option_d, correct_answer, score, question_order
+                FROM exam_questions 
+                WHERE exam_id = ? 
+                ORDER BY question_order
+            ''', (exam_id,))
+            questions = []
+            for row in cursor.fetchall():
+                questions.append(dict(row))
+            return questions
+        except Exception as e:
+            print(f"Error getting exam questions: {e}")
+            return []
+        finally:
+            conn.close()
+    
+    def save_exam_record(self, user_id: int, exam_id: int, score: int, total_score: int, 
+                        percentage: int, passed: bool, answers: str) -> int:
+        """保存考试记录"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                INSERT INTO exam_records (user_id, exam_id, score, total_score, percentage, passed, answers, end_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (user_id, exam_id, score, total_score, percentage, passed, answers))
+            conn.commit()
+            return cursor.lastrowid
+        except Exception as e:
+            print(f"Error saving exam record: {e}")
+            return 0
+        finally:
+            conn.close()
+    
+    def get_user_exam_records(self, user_id: int) -> List[Dict]:
+        """获取用户的考试记录"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                SELECT er.id, er.score, er.total_score, er.percentage, er.passed, er.start_time, er.end_time,
+                       e.title, e.description
+                FROM exam_records er
+                JOIN exams e ON er.exam_id = e.id
+                WHERE er.user_id = ?
+                ORDER BY er.end_time DESC
+            ''', (user_id,))
+            records = []
+            for row in cursor.fetchall():
+                records.append(dict(row))
+            return records
+        except Exception as e:
+            print(f"Error getting user exam records: {e}")
+            return []
+        finally:
+            conn.close()
+    
+    def get_exam_record_detail(self, record_id: int) -> Optional[Dict]:
+        """获取考试记录详情"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                SELECT er.id, er.score, er.total_score, er.percentage, er.passed, er.start_time, er.end_time,
+                       er.answers, e.title, e.description, e.total_questions, e.passing_score
+                FROM exam_records er
+                JOIN exams e ON er.exam_id = e.id
+                WHERE er.id = ?
+            ''', (record_id,))
+            result = cursor.fetchone()
+            if result:
+                record = dict(result)
+                # 解析答案JSON
+                if record['answers']:
+                    record['answers'] = json.loads(record['answers'])
+                return record
+            return None
+        except Exception as e:
+            print(f"Error getting exam record detail: {e}")
+            return None
+        finally:
+            conn.close()
+    
+    def insert_sample_exams(self):
+        """插入示例考试数据"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # 检查是否已有考试数据
+            cursor.execute('SELECT COUNT(*) as count FROM exams')
+            if cursor.fetchone()['count'] > 0:
+                return  # 已有数据，不重复插入
+            
+            # 插入考试
+            exams_data = [
+                {
+                    'title': 'Stock Investment Basic Knowledge Test',
+                    'description': 'Test your mastery of basic stock investment knowledge',
+                    'total_questions': 5,
+                    'passing_score': 60,
+                    'time_limit': 30
+                },
+                {
+                    'title': 'Technical Analysis Advanced Test',
+                    'description': 'Test your understanding of technical analysis indicators and methods',
+                    'total_questions': 5,
+                    'passing_score': 60,
+                    'time_limit': 30
+                },
+                {
+                    'title': 'Fundamental Analysis Test',
+                    'description': 'Test your ability in company financial analysis and fundamental analysis',
+                    'total_questions': 5,
+                    'passing_score': 60,
+                    'time_limit': 30
+                },
+                {
+                    'title': 'Risk Management Test',
+                    'description': 'Test your understanding of investment risk management and asset allocation',
+                    'total_questions': 5,
+                    'passing_score': 60,
+                    'time_limit': 30
+                },
+                {
+                    'title': 'Market Psychology Test',
+                    'description': 'Test your understanding of market psychology and investment psychology',
+                    'total_questions': 5,
+                    'passing_score': 60,
+                    'time_limit': 30
+                }
+            ]
+            
+            for exam_data in exams_data:
+                cursor.execute('''
+                    INSERT INTO exams (title, description, total_questions, passing_score, time_limit)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (exam_data['title'], exam_data['description'], exam_data['total_questions'], 
+                     exam_data['passing_score'], exam_data['time_limit']))
+                exam_id = cursor.lastrowid
+                
+                # 插入对应的题目
+                questions_data = self._get_exam_questions_by_type(exam_data['title'])
+                for i, question in enumerate(questions_data, 1):
+                    cursor.execute('''
+                        INSERT INTO exam_questions (exam_id, question_text, option_a, option_b, option_c, option_d, correct_answer, score, question_order)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (exam_id, question['question'], question['option_a'], question['option_b'], 
+                         question['option_c'], question['option_d'], question['correct'], 1, i))
+            
+            conn.commit()
+            print("Sample exam data inserted successfully")
+        except Exception as e:
+            print(f"Error inserting sample exams: {e}")
+        finally:
+            conn.close()
+    
+    def _get_exam_questions_by_type(self, exam_title: str) -> List[Dict]:
+        """根据考试类型获取题目"""
+        if 'Basic Knowledge' in exam_title:
+            return [
+                {
+                    'question': 'What aspects does fundamental analysis of stocks primarily focus on?',
+                    'option_a': 'Company financial status',
+                    'option_b': 'Technical indicators',
+                    'option_c': 'Market sentiment',
+                    'option_d': 'All of the above',
+                    'correct': 'A'
+                },
+                {
+                    'question': 'Price-to-earnings ratio (PE) is an important indicator for measuring stock valuation. What is its calculation formula?',
+                    'option_a': 'Share price / Earnings per share',
+                    'option_b': 'Share price / Net asset value per share',
+                    'option_c': 'Share price / Cash flow per share',
+                    'option_d': 'Share price / Dividend per share',
+                    'correct': 'A'
+                },
+                {
+                    'question': 'Which of the following is NOT a common technical indicator?',
+                    'option_a': 'Moving Average',
+                    'option_b': 'Relative Strength Index (RSI)',
+                    'option_c': 'Company Revenue',
+                    'option_d': 'MACD',
+                    'correct': 'C'
+                },
+                {
+                    'question': 'What does a stock\'s beta measure?',
+                    'option_a': 'The stock\'s volatility compared to the market',
+                    'option_b': 'The stock\'s dividend yield',
+                    'option_c': 'The stock\'s market capitalization',
+                    'option_d': 'The stock\'s earnings per share',
+                    'correct': 'A'
+                },
+                {
+                    'question': 'What is the primary purpose of diversification in investment?',
+                    'option_a': 'To maximize returns',
+                    'option_b': 'To reduce risk',
+                    'option_c': 'To minimize taxes',
+                    'option_d': 'To increase trading frequency',
+                    'correct': 'B'
+                }
+            ]
+        elif 'Technical Analysis' in exam_title:
+            return [
+                {
+                    'question': 'In MACD indicator, when the DIF line crosses above the DEA line, what does this typically indicate?',
+                    'option_a': 'Sell signal',
+                    'option_b': 'Buy signal',
+                    'option_c': 'Wait signal',
+                    'option_d': 'No meaning',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'When RSI indicator exceeds 70, what does this typically indicate?',
+                    'option_a': 'Stock oversold',
+                    'option_b': 'Stock overbought',
+                    'option_c': 'Stock normal',
+                    'option_d': 'Indicator invalid',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'What does a doji pattern in candlestick charts typically indicate?',
+                    'option_a': 'Strong upward signal',
+                    'option_b': 'Strong downward signal',
+                    'option_c': 'Market indecision',
+                    'option_d': 'No special meaning',
+                    'correct': 'C'
+                },
+                {
+                    'question': 'In Bollinger Bands indicator, when stock price touches the lower band, what does this typically indicate?',
+                    'option_a': 'Overbought signal',
+                    'option_b': 'Oversold signal',
+                    'option_c': 'Normal fluctuation',
+                    'option_d': 'Trend reversal',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'What is the role of volume in technical analysis?',
+                    'option_a': 'Confirm price trends',
+                    'option_b': 'Predict future prices',
+                    'option_c': 'Calculate technical indicators',
+                    'option_d': 'All of the above',
+                    'correct': 'A'
+                }
+            ]
+        elif 'Fundamental Analysis' in exam_title:
+            return [
+                {
+                    'question': 'Which of the following financial ratios best reflects a company\'s profitability?',
+                    'option_a': 'Debt-to-equity ratio',
+                    'option_b': 'Return on Equity (ROE)',
+                    'option_c': 'Current ratio',
+                    'option_d': 'Inventory turnover ratio',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'What is a company\'s free cash flow?',
+                    'option_a': 'Net profit',
+                    'option_b': 'Operating cash flow minus capital expenditures',
+                    'option_c': 'Total assets',
+                    'option_d': 'Shareholders\' equity',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'Which indicator best reflects a company\'s growth potential?',
+                    'option_a': 'Price-to-earnings ratio',
+                    'option_b': 'Revenue growth rate',
+                    'option_c': 'Dividend yield',
+                    'option_d': 'Price-to-book ratio',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'What category does goodwill belong to in a company\'s balance sheet?',
+                    'option_a': 'Current assets',
+                    'option_b': 'Intangible assets',
+                    'option_c': 'Long-term liabilities',
+                    'option_d': 'Shareholders\' equity',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'Which of the following is NOT an important indicator for measuring a company\'s financial health?',
+                    'option_a': 'Current ratio',
+                    'option_b': 'Debt-to-equity ratio',
+                    'option_c': 'Stock price',
+                    'option_d': 'Interest coverage ratio',
+                    'correct': 'C'
+                }
+            ]
+        elif 'Risk Management' in exam_title:
+            return [
+                {
+                    'question': 'Which of the following investment strategies has the highest risk?',
+                    'option_a': 'Index fund investment',
+                    'option_b': 'Single stock investment',
+                    'option_c': 'Bond investment',
+                    'option_d': 'Money market fund',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'What is the main purpose of a stop-loss order?',
+                    'option_a': 'Lock in profits',
+                    'option_b': 'Limit losses',
+                    'option_c': 'Increase returns',
+                    'option_d': 'Reduce trading costs',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'In an investment portfolio, when the correlation between different asset classes is lower, how does risk change?',
+                    'option_a': 'Risk increases',
+                    'option_b': 'Risk decreases',
+                    'option_c': 'Risk remains unchanged',
+                    'option_d': 'Cannot determine',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'Which of the following is NOT an effective risk management strategy?',
+                    'option_a': 'Asset allocation',
+                    'option_b': 'Regular rebalancing',
+                    'option_c': 'Full position trading',
+                    'option_d': 'Diversified investment',
+                    'correct': 'C'
+                },
+                {
+                    'question': 'What does VaR (Value at Risk) measure?',
+                    'option_a': 'Maximum possible return',
+                    'option_b': 'Maximum possible loss',
+                    'option_c': 'Average return',
+                    'option_d': 'Return standard deviation',
+                    'correct': 'B'
+                }
+            ]
+        else:  # Market Psychology
+            return [
+                {
+                    'question': 'Herd behavior in investment manifests as?',
+                    'option_a': 'Independent thinking',
+                    'option_b': 'Following crowd behavior',
+                    'option_c': 'Contrarian investment',
+                    'option_d': 'Long-term holding',
+                    'correct': 'B'
+                },
+                {
+                    'question': 'Anchoring effect refers to investors being easily influenced by what?',
+                    'option_a': 'Historical prices',
+                    'option_b': 'Future expectations',
+                    'option_c': 'Market sentiment',
+                    'option_d': 'Expert opinions',
+                    'correct': 'A'
+                },
+                {
+                    'question': 'Loss aversion psychology causes investors to?',
+                    'option_a': 'Sell profitable stocks too early',
+                    'option_b': 'Hold losing stocks for too long',
+                    'option_c': 'Make rational decisions',
+                    'option_d': 'Trade frequently',
+                    'correct': 'A'
+                },
+                {
+                    'question': 'Overconfidence in investment typically manifests as?',
+                    'option_a': 'Excessive trading',
+                    'option_b': 'Conservative investment',
+                    'option_c': 'Diversified investment',
+                    'option_d': 'Long-term holding',
+                    'correct': 'A'
+                },
+                {
+                    'question': 'Which of the following is NOT a common investment psychology bias?',
+                    'option_a': 'Confirmation bias',
+                    'option_b': 'Anchoring effect',
+                    'option_c': 'Rational decision-making',
+                    'option_d': 'Herd behavior',
+                    'correct': 'C'
+                }
+            ]
 
 # 创建全局数据库实例
 db = ForumDatabase() 

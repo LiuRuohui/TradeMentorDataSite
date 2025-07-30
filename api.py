@@ -14,7 +14,7 @@ from fastapi import Query
 from fastapi.encoders import jsonable_encoder   # ❶ 新增
 import numpy as np
 import akshare as ak
-from database import db  # 导入数据库模块
+from database import ForumDatabase  # 修复导入
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 from stock_analyze import get_exchange
@@ -146,6 +146,7 @@ async def get_current_user(Authorization: Optional[str] = Header(None)) -> Optio
         else:
             token = Authorization
         
+        db = ForumDatabase()
         user = db.verify_session(token)
         return user
     except Exception:
@@ -175,6 +176,7 @@ async def register_user(request: UserRegisterRequest):
     """User registration"""
     try:
         # Validate user type
+        db = ForumDatabase()
         valid_user_types = db.get_user_types()
         if request.user_type not in valid_user_types:
             raise HTTPException(status_code=400, detail=f"Invalid user type. Available types: {', '.join(valid_user_types)}")
@@ -199,6 +201,7 @@ async def register_user(request: UserRegisterRequest):
 async def login_user(request: UserLoginRequest):
     """User login"""
     try:
+        db = ForumDatabase()
         result = db.login_user(
             username=request.username,
             password=request.password
@@ -237,6 +240,7 @@ async def get_current_user_info(current_user: Optional[Dict] = Depends(get_curre
 @app.get("/api/auth/user-types", summary="Get Available User Types")
 async def get_user_types():
     """Get available user types"""
+    db = ForumDatabase()
     return {"user_types": db.get_user_types()}
 
 @app.post("/analyze/single", summary="Analyze Single Stock and Generate Chart")
@@ -441,6 +445,7 @@ async def get_stock_list(req: StockListRequest):
 async def get_forum_posts():
     """Get all forum posts"""
     try:
+        db = ForumDatabase()
         posts = db.get_all_posts()
         return {"posts": posts}
     except Exception as e:
@@ -450,6 +455,7 @@ async def get_forum_posts():
 async def get_forum_categories():
     """Get all forum categories"""
     try:
+        db = ForumDatabase()
         categories = db.get_categories()
         return {"categories": categories}
     except Exception as e:
@@ -459,6 +465,7 @@ async def get_forum_categories():
 async def get_forum_tags():
     """Get all forum tags"""
     try:
+        db = ForumDatabase()
         tags = db.get_tags()
         return {"tags": tags}
     except Exception as e:
@@ -468,6 +475,7 @@ async def get_forum_tags():
 async def get_forum_stats():
     """Get forum statistics"""
     try:
+        db = ForumDatabase()
         stats = db.get_forum_stats()
         return stats
     except Exception as e:
@@ -483,6 +491,7 @@ async def create_forum_post(
         raise HTTPException(status_code=401, detail="Please login before posting")
     
     try:
+        db = ForumDatabase()
         post_id = db.create_post_by_user_id(
             title=request.title,
             content=request.content,
@@ -501,6 +510,7 @@ async def get_my_posts(current_user: Optional[Dict] = Depends(get_current_user))
         raise HTTPException(status_code=401, detail="Please login first")
     
     try:
+        db = ForumDatabase()
         posts = db.get_user_posts(current_user['id'])
         return {"posts": posts}
     except Exception as e:
@@ -510,6 +520,7 @@ async def get_my_posts(current_user: Optional[Dict] = Depends(get_current_user))
 async def get_forum_post_detail(post_id: int):
     """Get forum post detail by ID"""
     try:
+        db = ForumDatabase()
         post = db.get_post_by_id(post_id)
         if not post:
             raise HTTPException(status_code=404, detail="Post not found")
@@ -521,6 +532,7 @@ async def get_forum_post_detail(post_id: int):
 async def get_post_replies(post_id: int):
     """获取某个帖子的所有评论"""
     try:
+        db = ForumDatabase()
         replies = db.get_replies_by_post_id(post_id)
         return {"replies": replies}
     except Exception as e:
@@ -532,6 +544,7 @@ async def add_post_reply(post_id: int, request: CreateReplyRequest, current_user
     if not current_user:
         raise HTTPException(status_code=401, detail="Please login before commenting")
     try:
+        db = ForumDatabase()
         reply_id = db.add_reply(post_id, current_user['id'], request.content)
         return {"message": "Reply added", "reply_id": reply_id}
     except Exception as e:
@@ -541,10 +554,136 @@ async def add_post_reply(post_id: int, request: CreateReplyRequest, current_user
 async def like_post(post_id: int):
     """给帖子点赞，返回最新点赞数"""
     try:
+        db = ForumDatabase()
         likes = db.like_post(post_id)
         return {"likes": likes}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to like post: {str(e)}")
+
+# 考试相关模型
+class ExamSubmission(BaseModel):
+    exam_id: int
+    answers: dict
+    user_id: int
+
+# 考试相关API端点
+@app.get("/api/exams", summary="获取所有考试列表")
+async def get_exams():
+    """获取所有可用的考试列表"""
+    try:
+        db = ForumDatabase()
+        exams = db.get_all_exams()
+        return {"success": True, "data": exams}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/exams/{exam_id}", summary="获取考试详情")
+async def get_exam(exam_id: int):
+    """获取指定考试的详情"""
+    try:
+        db = ForumDatabase()
+        exam = db.get_exam_by_id(exam_id)
+        if not exam:
+            raise HTTPException(status_code=404, detail="考试不存在")
+        return {"success": True, "data": exam}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/exams/{exam_id}/questions", summary="获取考试题目")
+async def get_exam_questions(exam_id: int):
+    """获取指定考试的题目列表"""
+    try:
+        db = ForumDatabase()
+        questions = db.get_exam_questions(exam_id)
+        if not questions:
+            raise HTTPException(status_code=404, detail="考试题目不存在")
+        return {"success": True, "data": questions}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/exams/submit", summary="提交考试答案")
+async def submit_exam(submission: ExamSubmission):
+    """提交考试答案并计算分数"""
+    try:
+        db = ForumDatabase()
+        
+        # 获取考试题目
+        questions = db.get_exam_questions(submission.exam_id)
+        if not questions:
+            raise HTTPException(status_code=404, detail="考试题目不存在")
+        
+        # 计算分数
+        score = 0
+        total_score = len(questions)
+        correct_answers = {}
+        
+        for question in questions:
+            question_id = question['id']
+            user_answer = submission.answers.get(f"q{question['question_order']}")
+            correct_answer = question['correct_answer']
+            
+            correct_answers[f"q{question['question_order']}"] = {
+                "user_answer": user_answer,
+                "correct_answer": correct_answer,
+                "is_correct": user_answer == correct_answer
+            }
+            
+            if user_answer == correct_answer:
+                score += question['score']
+        
+        percentage = round((score / total_score) * 100)
+        
+        # 获取考试信息
+        exam = db.get_exam_by_id(submission.exam_id)
+        passed = percentage >= exam['passing_score']
+        
+        # 保存考试记录
+        answers_json = json.dumps(correct_answers, ensure_ascii=False)
+        record_id = db.save_exam_record(
+            submission.user_id, 
+            submission.exam_id, 
+            score, 
+            total_score, 
+            percentage, 
+            passed, 
+            answers_json
+        )
+        
+        return {
+            "success": True,
+            "data": {
+                "record_id": record_id,
+                "score": score,
+                "total_score": total_score,
+                "percentage": percentage,
+                "passed": passed,
+                "answers": correct_answers
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/exam-records/{user_id}", summary="获取用户考试记录")
+async def get_user_exam_records(user_id: int):
+    """获取指定用户的考试记录"""
+    try:
+        db = ForumDatabase()
+        records = db.get_user_exam_records(user_id)
+        return {"success": True, "data": records}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/exam-records/{user_id}/{record_id}", summary="获取考试记录详情")
+async def get_exam_record_detail(user_id: int, record_id: int):
+    """获取指定考试记录的详细信息"""
+    try:
+        db = ForumDatabase()
+        record_detail = db.get_exam_record_detail(record_id)
+        if not record_detail:
+            raise HTTPException(status_code=404, detail="考试记录不存在")
+        return {"success": True, "data": record_detail}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)
